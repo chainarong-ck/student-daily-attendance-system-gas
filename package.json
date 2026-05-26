@@ -1,0 +1,24 @@
+{
+  "name": "student-daily-attendance-system-gas",
+  "version": "1.0.0",
+  "description": "โปรเจกต์ Google Apps Script Web App สำหรับระบบบันทึกการเข้าเรียนรายวันของนักเรียน โดยใช้ Google Sheets เป็นแหล่งเก็บข้อมูล และใช้ Bootstrap 5 สำหรับหน้าตาเว็บ",
+  "scripts": {
+    "build": "node build_script.mjs",
+    "push": "npm run build && clasp push"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chainarong-ck/student-daily-attendance-system-gas.git"
+  },
+  "keywords": [],
+  "author": "Chainarong_CK",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/chainarong-ck/student-daily-attendance-system-gas/issues"
+  },
+  "homepage": "https://github.com/chainarong-ck/student-daily-attendance-system-gas#readme",
+  "devDependencies": {
+    "@types/google-apps-script": "^2.0.9",
+    "typescript": "^6.0.3"
+  }
+}
