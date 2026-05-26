@@ -258,14 +258,32 @@
     <script>
       (function () {
         const appUrl = "<?= appUrl ?>";
+        const authToken = "<?= authToken ?>";
         const logoutButton = document.getElementById("logoutButton");
 
         logoutButton.addEventListener("click", function () {
-          if (appUrl) {
-            window.top.location.href = appUrl;
-            return;
-          }
-          window.top.location.reload();
+          logoutButton.disabled = true;
+          logoutButton.innerHTML =
+            '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> กำลังออกจากระบบ';
+
+          google.script.run
+            .withSuccessHandler(function (result) {
+              if (result && result.redirectUrl) {
+                window.top.location.href = result.redirectUrl;
+                return;
+              }
+            })
+            .withFailureHandler(function (error) {
+              logoutButton.disabled = false;
+              logoutButton.innerHTML =
+                '<i class="bi bi-box-arrow-right" aria-hidden="true"></i> ออกจากระบบ';
+              alert(
+                error && error.message
+                  ? error.message
+                  : "ไม่สามารถออกจากระบบได้ กรุณาลองใหม่อีกครั้ง",
+              );
+            })
+            ._logout(authToken);
         });
       })();
     </script>

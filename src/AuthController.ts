@@ -50,4 +50,18 @@ class AuthController {
 
     return token;
   }
+
+  public logout(token: string): boolean {
+    const normalizedToken = String(token || "");
+
+    if (normalizedToken.length === 0 || normalizedToken.length > 160) {
+      return false;
+    }
+
+    CacheController.getInstance().removeCache(
+      AuthController.AUTH_CACHE_PREFIX + normalizedToken,
+    );
+
+    return true;
+  }
 }

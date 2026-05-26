@@ -19,4 +19,8 @@ class CacheController {
   ): void {
     CacheService.getScriptCache().put(key, value, expirationInSeconds);
   }
+
+  public removeCache(key: string): void {
+    CacheService.getScriptCache().remove(key);
+  }
 }

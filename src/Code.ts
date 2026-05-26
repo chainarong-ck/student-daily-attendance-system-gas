@@ -21,6 +21,13 @@ function _login(
   };
 }
 
+function _logout(token: string): { ok: boolean; redirectUrl: string } {
+  return {
+    ok: AuthController.getInstance().logout(token),
+    redirectUrl: AppController.getWebAppUrl(),
+  };
+}
+
 function _saveSetupConfig(
   spreadsheetId: string,
   password: string,
