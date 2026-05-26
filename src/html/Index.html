@@ -26,15 +26,26 @@
         --app-font-family:
           "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", sans-serif;
-        --app-bg: #f5f7fb;
+        --app-bg: #f4f7fb;
         --app-panel: #ffffff;
         --app-text: #1f2937;
         --app-muted: #6b7280;
         --app-border: #d8dee9;
+        --app-soft-border: #e7ecf3;
         --app-primary: #0f766e;
+        --app-primary-hover: #0b5f59;
+        --app-primary-soft: #e6f4f1;
         --app-blue: #2563eb;
+        --app-blue-soft: #eef4ff;
         --app-amber: #b45309;
+        --app-amber-soft: #fff7ed;
+        --app-danger: #b42318;
+        --app-danger-soft: #fff1f0;
         --bs-body-font-family: var(--app-font-family);
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
@@ -53,19 +64,40 @@
         font-family: var(--app-font-family);
       }
 
+      .btn {
+        border-radius: 8px;
+        font-weight: 650;
+      }
+
+      .btn-primary {
+        --bs-btn-bg: var(--app-primary);
+        --bs-btn-border-color: var(--app-primary);
+        --bs-btn-hover-bg: var(--app-primary-hover);
+        --bs-btn-hover-border-color: var(--app-primary-hover);
+        --bs-btn-active-bg: var(--app-primary-hover);
+        --bs-btn-active-border-color: var(--app-primary-hover);
+      }
+
+      .form-control:focus,
+      .form-select:focus {
+        border-color: var(--app-primary);
+        box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.16);
+      }
+
       .app-shell {
         min-height: 100vh;
       }
 
       .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
         background: #ffffff;
         border-bottom: 1px solid var(--app-border);
       }
 
       .topbar-inner {
-        width: min(100%, 1120px);
         min-height: 64px;
-        margin: 0 auto;
         padding: 0 24px;
         display: flex;
         align-items: center;
@@ -86,14 +118,14 @@
         width: 40px;
         height: 40px;
         border-radius: 8px;
-        background: #e6f4f1;
+        background: var(--app-primary-soft);
         color: var(--app-primary);
         flex: 0 0 auto;
       }
 
       .brand-name {
         margin: 0;
-        font-size: 1.1rem;
+        font-size: 1.08rem;
         font-weight: 750;
         letter-spacing: 0;
         white-space: nowrap;
@@ -101,94 +133,497 @@
         text-overflow: ellipsis;
       }
 
-      .page-main {
-        width: min(100%, 1120px);
-        margin: 0 auto;
-        padding: 28px 24px 40px;
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
       }
 
-      .status-panel {
-        background: var(--app-panel);
-        border: 1px solid var(--app-border);
+      .term-picker {
+        display: grid;
+        grid-template-columns: auto minmax(150px, 220px);
+        align-items: center;
+        gap: 8px;
+      }
+
+      .term-picker-label {
+        color: var(--app-muted);
+        font-size: 0.9rem;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: calc(100vh - 65px);
+      }
+
+      .sidebar {
+        background: #ffffff;
+        border-right: 1px solid var(--app-border);
+        padding: 18px 14px;
+      }
+
+      .nav-stack {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav-button {
+        width: 100%;
+        min-height: 42px;
+        border: 0;
         border-radius: 8px;
-        padding: 24px;
-        box-shadow: 0 18px 45px rgba(31, 41, 55, 0.06);
+        background: transparent;
+        color: #374151;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        text-align: left;
+        font-weight: 650;
       }
 
-      .status-title {
+      .nav-button:hover {
+        background: #f3f6fa;
+      }
+
+      .nav-button.active {
+        background: var(--app-primary-soft);
+        color: var(--app-primary);
+      }
+
+      .nav-button i {
+        font-size: 1.05rem;
+      }
+
+      .content {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .content-inner {
+        width: min(100%, 1180px);
+        margin: 0 auto;
+      }
+
+      .view {
+        display: none;
+      }
+
+      .view.active {
+        display: block;
+      }
+
+      .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .page-title {
         margin: 0;
-        font-size: 1.25rem;
-        font-weight: 750;
+        font-size: 1.35rem;
+        font-weight: 780;
         letter-spacing: 0;
       }
 
-      .status-subtitle {
-        margin: 8px 0 0;
+      .page-subtitle {
+        margin: 6px 0 0;
         color: var(--app-muted);
         line-height: 1.6;
       }
 
-      .status-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin-top: 22px;
+      .panel {
+        background: var(--app-panel);
+        border: 1px solid var(--app-border);
+        border-radius: 8px;
+        box-shadow: 0 12px 34px rgba(31, 41, 55, 0.05);
       }
 
-      .status-item {
+      .panel-header {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--app-soft-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 750;
+        letter-spacing: 0;
+      }
+
+      .panel-body {
+        padding: 18px;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .toolbar-fields {
+        display: flex;
+        align-items: end;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .field-sm {
+        min-width: 180px;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .metric-card {
+        min-height: 118px;
+        background: #ffffff;
         border: 1px solid var(--app-border);
         border-radius: 8px;
         padding: 16px;
-        background: #fbfdff;
-        min-height: 116px;
       }
 
-      .status-item-icon {
+      .metric-icon {
         display: inline-grid;
         place-items: center;
         width: 36px;
         height: 36px;
         border-radius: 8px;
         margin-bottom: 12px;
-      }
-
-      .status-item-icon.ready {
-        background: #e6f4f1;
+        background: var(--app-primary-soft);
         color: var(--app-primary);
       }
 
-      .status-item-icon.config {
-        background: #eef4ff;
+      .metric-icon.blue {
+        background: var(--app-blue-soft);
         color: var(--app-blue);
       }
 
-      .status-item-icon.session {
-        background: #fff7ed;
+      .metric-icon.amber {
+        background: var(--app-amber-soft);
         color: var(--app-amber);
       }
 
-      .status-label {
+      .metric-icon.danger {
+        background: var(--app-danger-soft);
+        color: var(--app-danger);
+      }
+
+      .metric-label {
         margin: 0;
         color: var(--app-muted);
-        font-size: 0.92rem;
+        font-size: 0.9rem;
       }
 
-      .status-value {
-        margin: 3px 0 0;
+      .metric-value {
+        margin: 2px 0 0;
+        font-size: 1.35rem;
+        font-weight: 780;
+        letter-spacing: 0;
+      }
+
+      .metric-note {
+        margin: 4px 0 0;
+        color: var(--app-muted);
+        font-size: 0.88rem;
+      }
+
+      .table {
+        margin: 0;
+      }
+
+      .table th {
+        color: #4b5563;
+        font-size: 0.88rem;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .table td {
+        vertical-align: middle;
+      }
+
+      .table-responsive {
+        border: 1px solid var(--app-soft-border);
+        border-radius: 8px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.86rem;
         font-weight: 700;
+        white-space: nowrap;
       }
 
-      @media (max-width: 768px) {
+      .status-pill.success {
+        background: #e6f4ea;
+        color: #137333;
+      }
+
+      .status-pill.warning {
+        background: #fff7ed;
+        color: #b45309;
+      }
+
+      .status-pill.danger {
+        background: #fff1f0;
+        color: #b42318;
+      }
+
+      .status-pill.info {
+        background: #eef4ff;
+        color: #2563eb;
+      }
+
+      .status-pill.neutral {
+        background: #eef2f7;
+        color: #4b5563;
+      }
+
+      .empty-state {
+        padding: 34px 18px;
+        text-align: center;
+        color: var(--app-muted);
+      }
+
+      .empty-state i {
+        display: block;
+        margin-bottom: 10px;
+        color: #9aa6b2;
+        font-size: 2rem;
+      }
+
+      .empty-state-title {
+        margin: 0;
+        color: #374151;
+        font-weight: 750;
+      }
+
+      .empty-state-text {
+        margin: 6px auto 0;
+        max-width: 560px;
+        line-height: 1.6;
+      }
+
+      .icon-button {
+        width: 36px;
+        height: 36px;
+        display: inline-grid;
+        place-items: center;
+        padding: 0;
+      }
+
+      .action-cell {
+        width: 1%;
+        white-space: nowrap;
+      }
+
+      .attendance-statuses {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .attendance-status-button {
+        min-width: 54px;
+      }
+
+      .attendance-status-button.active {
+        color: #ffffff;
+      }
+
+      .attendance-status-button[data-status="มา"].active {
+        background: #137333;
+        border-color: #137333;
+      }
+
+      .attendance-status-button[data-status="ขาด"].active {
+        background: #b42318;
+        border-color: #b42318;
+      }
+
+      .attendance-status-button[data-status="ลา"].active,
+      .attendance-status-button[data-status="ป่วย"].active {
+        background: #2563eb;
+        border-color: #2563eb;
+      }
+
+      .attendance-status-button[data-status="สาย"].active {
+        background: #b45309;
+        border-color: #b45309;
+      }
+
+      .note-input {
+        min-width: 180px;
+      }
+
+      .folder-suggestion {
+        margin-top: 16px;
+        border: 1px solid #bfe4dd;
+        border-radius: 8px;
+        background: #f3fbf9;
+        overflow: hidden;
+      }
+
+      .folder-suggestion-copy {
+        padding: 14px 14px 0;
+      }
+
+      .folder-suggestion-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--app-primary);
+        font-size: 0.88rem;
+        font-weight: 750;
+      }
+
+      .folder-suggestion-description {
+        margin: 8px 0 0;
+        color: #2f4f4a;
+        line-height: 1.6;
+      }
+
+      .folder-suggestion-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+        padding: 14px;
+        border-top: 1px solid #cce8e3;
+        background: #ffffff;
+      }
+
+      .folder-suggestion-name {
+        font-weight: 650;
+      }
+
+      .folder-suggestion-id {
+        color: var(--app-muted);
+        font-size: 0.9rem;
+        word-break: break-all;
+      }
+
+      .loading-state {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        color: var(--app-muted);
+        margin-bottom: 14px;
+      }
+
+      .loading-state.active {
+        display: flex;
+      }
+
+      .modal-content {
+        border-radius: 8px;
+      }
+
+      @media (max-width: 980px) {
         .topbar-inner {
-          padding: 0 16px;
+          align-items: stretch;
+          flex-direction: column;
+          padding: 12px 16px;
         }
 
-        .page-main {
-          padding: 18px 16px 28px;
+        .topbar-actions {
+          width: 100%;
+          justify-content: space-between;
         }
 
-        .status-grid {
+        .term-picker {
+          flex: 1;
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .layout {
           grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: sticky;
+          top: 88px;
+          z-index: 10;
+          border-right: 0;
+          border-bottom: 1px solid var(--app-border);
+          padding: 10px 16px;
+          overflow-x: auto;
+        }
+
+        .nav-stack {
+          display: flex;
+          width: max-content;
+          min-width: 100%;
+        }
+
+        .nav-button {
+          width: auto;
+          white-space: nowrap;
+          grid-template-columns: 24px auto;
+        }
+
+        .metric-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar-actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .content {
+          padding: 16px;
+        }
+
+        .page-header {
+          flex-direction: column;
+        }
+
+        .metric-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .toolbar,
+        .toolbar-fields {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .field-sm,
+        .toolbar .btn,
+        .toolbar-fields > * {
+          width: 100%;
+        }
+
+        .folder-suggestion-actions {
+          align-items: stretch;
+          flex-direction: column;
         }
       }
     </style>
@@ -203,51 +638,592 @@
             </div>
             <h1 class="brand-name">ระบบบันทึกการเข้าเรียนรายวัน</h1>
           </div>
-          <button
-            id="logoutButton"
-            type="button"
-            class="btn btn-outline-secondary btn-sm"
-          >
-            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-            ออกจากระบบ
-          </button>
+
+          <div class="topbar-actions">
+            <label class="term-picker" for="termSelect">
+              <span class="term-picker-label">เทอมปัจจุบัน</span>
+              <select id="termSelect" class="form-select form-select-sm">
+                <option value="">กำลังโหลด</option>
+              </select>
+            </label>
+            <button
+              id="logoutButton"
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+            >
+              <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+              ออกจากระบบ
+            </button>
+          </div>
         </div>
       </header>
 
-      <main class="page-main">
-        <section class="status-panel" aria-labelledby="statusTitle">
-          <h2 id="statusTitle" class="status-title">สถานะระบบ</h2>
-          <p class="status-subtitle">
-            เข้าสู่ระบบแล้ว และการตั้งค่าพื้นฐานพร้อมใช้งาน
-          </p>
+      <div class="layout">
+        <aside class="sidebar">
+          <nav class="nav-stack" aria-label="เมนูหลัก">
+            <button class="nav-button active" type="button" data-nav-view="home">
+              <i class="bi bi-speedometer2" aria-hidden="true"></i>
+              <span>หน้าหลัก</span>
+            </button>
+            <button
+              class="nav-button"
+              type="button"
+              data-nav-view="attendance"
+            >
+              <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
+              <span>เช็คชื่อ</span>
+            </button>
+            <button
+              class="nav-button"
+              type="button"
+              data-nav-view="students"
+            >
+              <i class="bi bi-people" aria-hidden="true"></i>
+              <span>รายชื่อนักเรียน</span>
+            </button>
+            <button class="nav-button" type="button" data-nav-view="classes">
+              <i class="bi bi-door-open" aria-hidden="true"></i>
+              <span>ชั้นเรียน/ห้องเรียน</span>
+            </button>
+            <button class="nav-button" type="button" data-nav-view="terms">
+              <i class="bi bi-gear" aria-hidden="true"></i>
+              <span>ตั้งค่าเทอม</span>
+            </button>
+          </nav>
+        </aside>
 
-          <div class="status-grid">
-            <div class="status-item">
-              <span class="status-item-icon ready">
-                <i class="bi bi-check2-circle" aria-hidden="true"></i>
-              </span>
-              <p class="status-label">ระบบ</p>
-              <p class="status-value">พร้อมใช้งาน</p>
+        <main class="content">
+          <div class="content-inner">
+            <div id="globalMessage" class="d-none" role="status"></div>
+            <div id="loadingState" class="loading-state">
+              <span
+                class="spinner-border spinner-border-sm"
+                aria-hidden="true"
+              ></span>
+              <span>กำลังโหลดข้อมูล</span>
             </div>
 
-            <div class="status-item">
-              <span class="status-item-icon config">
-                <i class="bi bi-table" aria-hidden="true"></i>
-              </span>
-              <p class="status-label">สเปรดชีตหลัก</p>
-              <p class="status-value">ตั้งค่าแล้ว</p>
-            </div>
+            <section class="view active" data-view-panel="home">
+              <div class="page-header">
+                <div>
+                  <h2 class="page-title">หน้าหลัก</h2>
+                  <p class="page-subtitle">
+                    สรุปสถานะเทอมปัจจุบันและภาพรวมการเช็คชื่อวันนี้
+                  </p>
+                </div>
+              </div>
 
-            <div class="status-item">
-              <span class="status-item-icon session">
-                <i class="bi bi-shield-check" aria-hidden="true"></i>
-              </span>
-              <p class="status-label">เซสชัน</p>
-              <p class="status-value">ใช้งานอยู่</p>
-            </div>
+              <div class="metric-grid">
+                <div class="metric-card">
+                  <span class="metric-icon">
+                    <i class="bi bi-calendar3" aria-hidden="true"></i>
+                  </span>
+                  <p class="metric-label">เทอมปัจจุบัน</p>
+                  <p id="homeActiveTerm" class="metric-value">-</p>
+                  <p id="homeActiveTermNote" class="metric-note">-</p>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-icon blue">
+                    <i class="bi bi-door-open" aria-hidden="true"></i>
+                  </span>
+                  <p class="metric-label">ห้องเรียน</p>
+                  <p id="homeClassCount" class="metric-value">0</p>
+                  <p class="metric-note">ห้องที่เปิดใช้งาน</p>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-icon amber">
+                    <i class="bi bi-people" aria-hidden="true"></i>
+                  </span>
+                  <p class="metric-label">นักเรียน</p>
+                  <p id="homeStudentCount" class="metric-value">0</p>
+                  <p class="metric-note">รายชื่อที่เปิดใช้งาน</p>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-icon danger">
+                    <i class="bi bi-clipboard2-check" aria-hidden="true"></i>
+                  </span>
+                  <p class="metric-label">เช็คชื่อวันนี้</p>
+                  <p id="homeAttendanceCount" class="metric-value">0/0</p>
+                  <p id="homeAttendanceNote" class="metric-note">-</p>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <h3 class="panel-title">งานที่ควรทำต่อ</h3>
+                </div>
+                <div id="homeNextSteps" class="panel-body"></div>
+              </div>
+            </section>
+
+            <section class="view" data-view-panel="attendance">
+              <div class="page-header">
+                <div>
+                  <h2 class="page-title">เช็คชื่อ</h2>
+                  <p class="page-subtitle">
+                    เลือกวันที่และห้องเรียนเพื่อบันทึกสถานะรายคน
+                  </p>
+                </div>
+              </div>
+
+              <div class="panel mb-3">
+                <div class="panel-body">
+                  <div class="toolbar">
+                    <div class="toolbar-fields">
+                      <div class="field-sm">
+                        <label class="form-label" for="attendanceDate"
+                          >วันที่</label
+                        >
+                        <input
+                          id="attendanceDate"
+                          class="form-control"
+                          type="date"
+                        />
+                      </div>
+                      <div class="field-sm">
+                        <label class="form-label" for="attendanceClassSelect"
+                          >ห้องเรียน</label
+                        >
+                        <select
+                          id="attendanceClassSelect"
+                          class="form-select"
+                        ></select>
+                      </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button
+                        id="loadAttendanceButton"
+                        type="button"
+                        class="btn btn-outline-secondary"
+                      >
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                        โหลดรายชื่อ
+                      </button>
+                      <button
+                        id="saveAttendanceButton"
+                        type="button"
+                        class="btn btn-primary"
+                        disabled
+                      >
+                        <i class="bi bi-save" aria-hidden="true"></i>
+                        บันทึกเช็คชื่อ
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="attendanceContent" class="panel"></div>
+            </section>
+
+            <section class="view" data-view-panel="students">
+              <div class="page-header">
+                <div>
+                  <h2 class="page-title">จัดการรายชื่อนักเรียน</h2>
+                  <p class="page-subtitle">
+                    เพิ่ม แก้ไข และปิดใช้งานรายชื่อนักเรียนในเทอมปัจจุบัน
+                  </p>
+                </div>
+                <button
+                  id="addStudentButton"
+                  type="button"
+                  class="btn btn-primary"
+                >
+                  <i class="bi bi-person-plus" aria-hidden="true"></i>
+                  เพิ่มนักเรียน
+                </button>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <h3 class="panel-title">รายชื่อนักเรียน</h3>
+                  <select
+                    id="studentFilterClassSelect"
+                    class="form-select form-select-sm field-sm"
+                  ></select>
+                </div>
+                <div class="panel-body">
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                      <thead>
+                        <tr>
+                          <th>รหัสนักศึกษา</th>
+                          <th>ชื่อ-นามสกุล</th>
+                          <th>เพศ</th>
+                          <th>ห้องเรียน</th>
+                          <th>ลำดับ</th>
+                          <th class="action-cell">จัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody id="studentsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="view" data-view-panel="classes">
+              <div class="page-header">
+                <div>
+                  <h2 class="page-title">จัดการชั้นเรียน/ห้องเรียน</h2>
+                  <p class="page-subtitle">
+                    กำหนดระดับชั้นและห้องเรียนสำหรับเทอมปัจจุบัน
+                  </p>
+                </div>
+                <button
+                  id="addClassButton"
+                  type="button"
+                  class="btn btn-primary"
+                >
+                  <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                  เพิ่มห้องเรียน
+                </button>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <h3 class="panel-title">ห้องเรียนที่เปิดใช้งาน</h3>
+                </div>
+                <div class="panel-body">
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                      <thead>
+                        <tr>
+                          <th>ชื่อห้อง</th>
+                          <th>ระดับชั้น</th>
+                          <th>ห้อง</th>
+                          <th>ลำดับ</th>
+                          <th class="action-cell">จัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody id="classesTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="view" data-view-panel="terms">
+              <div class="page-header">
+                <div>
+                  <h2 class="page-title">ตั้งค่าเทอมการศึกษา</h2>
+                  <p class="page-subtitle">
+                    ตั้งค่าโฟลเดอร์ปลายทาง สร้างไฟล์ Google Sheets รายเทอม
+                    และเลือกเทอมปัจจุบัน
+                  </p>
+                </div>
+              </div>
+
+              <div class="panel mb-3">
+                <div class="panel-header">
+                  <h3 class="panel-title">Google Drive Folder</h3>
+                </div>
+                <div class="panel-body">
+                  <form id="folderForm" class="toolbar" novalidate>
+                    <div class="flex-grow-1">
+                      <label class="form-label" for="termFolderId"
+                        >Folder ID หรือ URL</label
+                      >
+                      <input
+                        id="termFolderId"
+                        class="form-control"
+                        placeholder="วาง Folder ID หรือ URL ของ Google Drive Folder"
+                        required
+                      />
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                      <i class="bi bi-save" aria-hidden="true"></i>
+                      บันทึก Folder
+                    </button>
+                  </form>
+
+                  <div id="folderSuggestion" class="folder-suggestion d-none">
+                    <div class="folder-suggestion-copy">
+                      <span class="folder-suggestion-badge">
+                        <i class="bi bi-info-circle" aria-hidden="true"></i>
+                        พบโฟลเดอร์แนะนำ
+                      </span>
+                      <p class="folder-suggestion-description">
+                        ระบบพบโฟลเดอร์เดียวกับสเปรดชีตหลักของระบบ
+                        สามารถใช้โฟลเดอร์นี้สำหรับจัดเก็บไฟล์ Google Sheets
+                        ของแต่ละเทอมได้
+                      </p>
+                    </div>
+                    <div class="folder-suggestion-actions">
+                      <div>
+                        <div
+                          id="folderSuggestionName"
+                          class="folder-suggestion-name"
+                        >
+                          -
+                        </div>
+                        <div
+                          id="folderSuggestionId"
+                          class="folder-suggestion-id"
+                        >
+                          -
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 flex-wrap">
+                        <a
+                          id="folderSuggestionLink"
+                          class="btn btn-outline-secondary btn-sm"
+                          href="#"
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                          เปิดโฟลเดอร์
+                        </a>
+                        <button
+                          id="useSuggestedFolder"
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm"
+                        >
+                          <i
+                            id="useSuggestedFolderIcon"
+                            class="bi bi-check2-circle"
+                            aria-hidden="true"
+                          ></i>
+                          <span id="useSuggestedFolderText"
+                            >ใช้โฟลเดอร์นี้</span
+                          >
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel mb-3">
+                <div class="panel-header">
+                  <h3 class="panel-title">สร้างเทอมการศึกษา</h3>
+                </div>
+                <div class="panel-body">
+                  <form id="termForm" class="toolbar" novalidate>
+                    <div class="toolbar-fields">
+                      <div class="field-sm">
+                        <label class="form-label" for="academicYear"
+                          >ปีการศึกษา</label
+                        >
+                        <input
+                          id="academicYear"
+                          class="form-control"
+                          inputmode="numeric"
+                          placeholder="2569"
+                          maxlength="4"
+                          required
+                        />
+                      </div>
+                      <div class="field-sm">
+                        <label class="form-label" for="academicTerm"
+                          >เทอม</label
+                        >
+                        <input
+                          id="academicTerm"
+                          class="form-control"
+                          inputmode="numeric"
+                          placeholder="1"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                      <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                      สร้างเทอม
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <h3 class="panel-title">เทอมทั้งหมด</h3>
+                </div>
+                <div class="panel-body">
+                  <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                      <thead>
+                        <tr>
+                          <th>เทอม</th>
+                          <th>สถานะ</th>
+                          <th>Spreadsheet</th>
+                          <th>สร้างเมื่อ</th>
+                          <th class="action-cell">เทอมปัจจุบัน</th>
+                        </tr>
+                      </thead>
+                      <tbody id="termsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
-      </main>
+        </main>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="classModal"
+      tabindex="-1"
+      aria-labelledby="classModalTitle"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="classForm" novalidate>
+            <div class="modal-header">
+              <h3 id="classModalTitle" class="modal-title fs-5">
+                เพิ่มห้องเรียน
+              </h3>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="ปิด"
+              ></button>
+            </div>
+            <div class="modal-body">
+              <input id="classId" type="hidden" />
+              <div class="mb-3">
+                <label class="form-label" for="classLevel">ระดับชั้น</label>
+                <input
+                  id="classLevel"
+                  class="form-control"
+                  placeholder="เช่น ม.1"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="classRoom">ห้อง</label>
+                <input
+                  id="classRoom"
+                  class="form-control"
+                  placeholder="เช่น 1"
+                  required
+                />
+              </div>
+              <div>
+                <label class="form-label" for="classSortOrder">ลำดับ</label>
+                <input
+                  id="classSortOrder"
+                  class="form-control"
+                  type="number"
+                  min="1"
+                  placeholder="เว้นว่างเพื่อเรียงต่อท้าย"
+                />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                data-bs-dismiss="modal"
+              >
+                ยกเลิก
+              </button>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save" aria-hidden="true"></i>
+                บันทึก
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="studentModal"
+      tabindex="-1"
+      aria-labelledby="studentModalTitle"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <form id="studentForm" novalidate>
+            <div class="modal-header">
+              <h3 id="studentModalTitle" class="modal-title fs-5">
+                เพิ่มนักเรียน
+              </h3>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="ปิด"
+              ></button>
+            </div>
+            <div class="modal-body">
+              <input id="studentId" type="hidden" />
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="studentClassId"
+                    >ห้องเรียน</label
+                  >
+                  <select id="studentClassId" class="form-select" required>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="studentCode"
+                    >รหัสนักศึกษา</label
+                  >
+                  <input id="studentCode" class="form-control" required />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="studentPrefix">คำนำหน้า</label>
+                  <input
+                    id="studentPrefix"
+                    class="form-control"
+                    placeholder="นาย/นางสาว"
+                  />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="studentFirstName">ชื่อ</label>
+                  <input id="studentFirstName" class="form-control" required />
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label" for="studentLastName"
+                    >นามสกุล</label
+                  >
+                  <input id="studentLastName" class="form-control" required />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="studentGender">เพศ</label>
+                  <select id="studentGender" class="form-select">
+                    <option value="ชาย">ชาย</option>
+                    <option value="หญิง">หญิง</option>
+                    <option value="อื่นๆ/ไม่ระบุ">อื่นๆ/ไม่ระบุ</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="studentSortOrder">ลำดับ</label>
+                  <input
+                    id="studentSortOrder"
+                    class="form-control"
+                    type="number"
+                    min="1"
+                    placeholder="เว้นว่างเพื่อเรียงต่อท้าย"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                data-bs-dismiss="modal"
+              >
+                ยกเลิก
+              </button>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save" aria-hidden="true"></i>
+                บันทึก
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
 
     <script
@@ -259,32 +1235,1077 @@
       (function () {
         const appUrl = "<?= appUrl ?>";
         const authToken = "<?= authToken ?>";
-        const logoutButton = document.getElementById("logoutButton");
+        const state = {
+          app: null,
+          view: "home",
+          attendanceSession: null,
+          classModal: null,
+          studentModal: null,
+        };
+        const statusIcons = {
+          มา: "bi-check2-circle",
+          ขาด: "bi-x-circle",
+          ลา: "bi-envelope",
+          ป่วย: "bi-thermometer-half",
+          สาย: "bi-clock-history",
+        };
 
-        logoutButton.addEventListener("click", function () {
-          logoutButton.disabled = true;
-          logoutButton.innerHTML =
-            '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> กำลังออกจากระบบ';
+        function byId(id) {
+          return document.getElementById(id);
+        }
 
-          google.script.run
-            .withSuccessHandler(function (result) {
-              if (result && result.redirectUrl) {
-                window.top.location.href = result.redirectUrl;
-                return;
-              }
-            })
-            .withFailureHandler(function (error) {
-              logoutButton.disabled = false;
-              logoutButton.innerHTML =
-                '<i class="bi bi-box-arrow-right" aria-hidden="true"></i> ออกจากระบบ';
-              alert(
-                error && error.message
-                  ? error.message
-                  : "ไม่สามารถออกจากระบบได้ กรุณาลองใหม่อีกครั้ง",
+        function escapeHtml(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        function server(methodName) {
+          const args = Array.prototype.slice.call(arguments, 1);
+          return new Promise(function (resolve, reject) {
+            const runner = google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject);
+            runner[methodName].apply(runner, args);
+          });
+        }
+
+        function getTodayDate() {
+          const now = new Date();
+          const timezoneOffset = now.getTimezoneOffset() * 60000;
+          return new Date(now.getTime() - timezoneOffset)
+            .toISOString()
+            .slice(0, 10);
+        }
+
+        function showMessage(type, text) {
+          const message = byId("globalMessage");
+          message.className = "alert alert-" + type;
+          message.textContent = text;
+
+          if (type === "success") {
+            window.setTimeout(function () {
+              message.className = "d-none";
+              message.textContent = "";
+            }, 2600);
+          }
+        }
+
+        function setLoading(isLoading) {
+          byId("loadingState").classList.toggle("active", isLoading);
+        }
+
+        function getErrorMessage(error, fallback) {
+          return error && error.message ? error.message : fallback;
+        }
+
+        function getActiveTerm() {
+          return state.app && state.app.activeTerm ? state.app.activeTerm : null;
+        }
+
+        function getClasses() {
+          return state.app && Array.isArray(state.app.classes)
+            ? state.app.classes
+            : [];
+        }
+
+        function getStudents() {
+          return state.app && Array.isArray(state.app.students)
+            ? state.app.students
+            : [];
+        }
+
+        function getStatuses() {
+          return state.app && Array.isArray(state.app.attendanceStatuses)
+            ? state.app.attendanceStatuses
+            : ["มา", "ขาด", "ลา", "ป่วย", "สาย"];
+        }
+
+        function getClassName(classId) {
+          const classRecord = getClasses().find(function (record) {
+            return record.classId === classId;
+          });
+          return classRecord ? classRecord.displayName : "-";
+        }
+
+        function getStudentName(student) {
+          return [student.prefix, student.firstName, student.lastName]
+            .filter(Boolean)
+            .join(" ");
+        }
+
+        async function loadAppState(options) {
+          const shouldKeepMessage = options && options.keepMessage;
+          setLoading(true);
+
+          try {
+            state.app = await server("_getAppState", authToken);
+            renderAll();
+
+            if (!shouldKeepMessage) {
+              byId("globalMessage").className = "d-none";
+              byId("globalMessage").textContent = "";
+            }
+          } catch (error) {
+            showMessage(
+              "danger",
+              getErrorMessage(error, "ไม่สามารถโหลดข้อมูลระบบได้"),
+            );
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        function renderAll() {
+          renderTermSelect();
+          renderHome();
+          renderTerms();
+          renderClassOptions();
+          renderClasses();
+          renderStudents();
+          renderAttendance();
+          updateActionAvailability();
+        }
+
+        function renderTermSelect() {
+          const select = byId("termSelect");
+          const terms = state.app ? state.app.terms : [];
+          const activeTermKey = state.app ? state.app.activeTermKey : "";
+
+          if (!terms.length) {
+            select.innerHTML = '<option value="">ยังไม่มีเทอม</option>';
+            select.disabled = true;
+            return;
+          }
+
+          select.innerHTML = terms
+            .map(function (term) {
+              return (
+                '<option value="' +
+                escapeHtml(term.termKey) +
+                '">' +
+                escapeHtml(term.termKey) +
+                "</option>"
               );
             })
-            ._logout(authToken);
-        });
+            .join("");
+          select.value = activeTermKey || "";
+          select.disabled = false;
+        }
+
+        function renderHome() {
+          const activeTerm = getActiveTerm();
+          const classes = getClasses();
+          const students = getStudents();
+          const summary =
+            state.app && state.app.todaySummary
+              ? state.app.todaySummary
+              : {
+                  totalClasses: 0,
+                  completedClasses: 0,
+                  recordedStudents: 0,
+                  totalStudents: 0,
+                  pendingStudents: 0,
+                };
+
+          byId("homeActiveTerm").textContent = activeTerm
+            ? activeTerm.termKey
+            : "-";
+          byId("homeActiveTermNote").textContent = activeTerm
+            ? "พร้อมใช้งาน"
+            : "ยังไม่ได้เลือกเทอม";
+          byId("homeClassCount").textContent = String(classes.length);
+          byId("homeStudentCount").textContent = String(students.length);
+          byId("homeAttendanceCount").textContent =
+            String(summary.recordedStudents) + "/" + String(summary.totalStudents);
+          byId("homeAttendanceNote").textContent =
+            String(summary.completedClasses) +
+            "/" +
+            String(summary.totalClasses) +
+            " ห้องเช็คชื่อครบ";
+
+          const steps = [];
+          if (!state.app || !state.app.termFolderId) {
+            steps.push("ตั้งค่า Folder ID สำหรับจัดเก็บไฟล์เทอม");
+          }
+          if (!activeTerm) {
+            steps.push("สร้างหรือเลือกเทอมการศึกษาปัจจุบัน");
+          }
+          if (activeTerm && classes.length === 0) {
+            steps.push("เพิ่มชั้นเรียนและห้องเรียน");
+          }
+          if (activeTerm && classes.length > 0 && students.length === 0) {
+            steps.push("เพิ่มรายชื่อนักเรียนในแต่ละห้อง");
+          }
+          if (
+            activeTerm &&
+            students.length > 0 &&
+            summary.pendingStudents > 0
+          ) {
+            steps.push("เช็คชื่อนักเรียนที่ยังไม่ได้บันทึกวันนี้");
+          }
+
+          byId("homeNextSteps").innerHTML = steps.length
+            ? '<ul class="mb-0">' +
+              steps
+                .map(function (step) {
+                  return "<li>" + escapeHtml(step) + "</li>";
+                })
+                .join("") +
+              "</ul>"
+            : '<span class="status-pill success"><i class="bi bi-check2-circle" aria-hidden="true"></i> ข้อมูลพื้นฐานพร้อมใช้งาน</span>';
+        }
+
+        function renderTerms() {
+          const folderInput = byId("termFolderId");
+          const termsTableBody = byId("termsTableBody");
+          const terms = state.app ? state.app.terms : [];
+          const activeTermKey = state.app ? state.app.activeTermKey : "";
+          const suggestedFolder = state.app
+            ? state.app.suggestedTermFolder
+            : null;
+          const currentFolderId = state.app ? state.app.termFolderId || "" : "";
+
+          folderInput.value = currentFolderId;
+          renderFolderSuggestion(suggestedFolder, currentFolderId);
+
+          if (!terms.length) {
+            termsTableBody.innerHTML =
+              '<tr><td colspan="5"><div class="empty-state"><i class="bi bi-calendar-plus" aria-hidden="true"></i><p class="empty-state-title">ยังไม่มีเทอมการศึกษา</p><p class="empty-state-text">บันทึก Folder ID แล้วสร้างเทอมแรกเพื่อเริ่มใช้งาน</p></div></td></tr>';
+            return;
+          }
+
+          termsTableBody.innerHTML = terms
+            .map(function (term) {
+              const isActive = term.termKey === activeTermKey;
+              return (
+                "<tr>" +
+                "<td><strong>" +
+                escapeHtml(term.termKey) +
+                "</strong></td>" +
+                '<td><span class="status-pill ' +
+                (term.status === "active" ? "success" : "neutral") +
+                '">' +
+                escapeHtml(term.status) +
+                "</span></td>" +
+                "<td>" +
+                (term.spreadsheetUrl
+                  ? '<a href="' +
+                    escapeHtml(term.spreadsheetUrl) +
+                    '" target="_blank" rel="noopener">เปิดไฟล์</a>'
+                  : "-") +
+                "</td>" +
+                "<td>" +
+                escapeHtml(term.createdAt || "-") +
+                "</td>" +
+                '<td class="action-cell">' +
+                (isActive
+                  ? '<span class="status-pill info"><i class="bi bi-check2" aria-hidden="true"></i> กำลังใช้งาน</span>'
+                  : '<button class="btn btn-outline-primary btn-sm" type="button" data-term-action="set-active" data-term-key="' +
+                    escapeHtml(term.termKey) +
+                    '">ใช้เทอมนี้</button>') +
+                "</td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+        }
+
+        function renderFolderSuggestion(suggestedFolder, currentFolderId) {
+          const suggestion = byId("folderSuggestion");
+          const suggestionLink = byId("folderSuggestionLink");
+          const suggestionButton = byId("useSuggestedFolder");
+          const suggestionIcon = byId("useSuggestedFolderIcon");
+          const suggestionText = byId("useSuggestedFolderText");
+
+          if (!suggestedFolder || !suggestedFolder.folderId) {
+            suggestion.classList.add("d-none");
+            return;
+          }
+
+          const isCurrentFolder =
+            suggestedFolder.folderId === String(currentFolderId || "").trim();
+
+          suggestion.classList.remove("d-none");
+          byId("folderSuggestionName").textContent =
+            suggestedFolder.folderName || "โฟลเดอร์แนะนำ";
+          byId("folderSuggestionId").textContent = suggestedFolder.folderId;
+          suggestionLink.href =
+            suggestedFolder.folderUrl ||
+            "https://drive.google.com/drive/folders/" +
+              encodeURIComponent(suggestedFolder.folderId);
+          suggestionButton.disabled = isCurrentFolder;
+          suggestionButton.classList.toggle("btn-outline-secondary", !isCurrentFolder);
+          suggestionButton.classList.toggle("btn-outline-success", isCurrentFolder);
+          suggestionIcon.className = isCurrentFolder
+            ? "bi bi-check2"
+            : "bi bi-check2-circle";
+          suggestionText.textContent = isCurrentFolder
+            ? "ใช้อยู่แล้ว"
+            : "ใช้โฟลเดอร์นี้";
+        }
+
+        function renderClassOptions() {
+          const classes = getClasses();
+          const attendanceSelect = byId("attendanceClassSelect");
+          const studentClassSelect = byId("studentClassId");
+          const filterSelect = byId("studentFilterClassSelect");
+          const currentAttendanceClassId = state.attendanceSession
+            ? state.attendanceSession.classId
+            : attendanceSelect.value;
+          const currentStudentClassId = studentClassSelect.value;
+          const currentFilterClassId = filterSelect.value;
+          const classOptions = classes
+            .map(function (classRecord) {
+              return (
+                '<option value="' +
+                escapeHtml(classRecord.classId) +
+                '">' +
+                escapeHtml(classRecord.displayName) +
+                "</option>"
+              );
+            })
+            .join("");
+
+          attendanceSelect.innerHTML = classes.length
+            ? classOptions
+            : '<option value="">ยังไม่มีห้องเรียน</option>';
+          studentClassSelect.innerHTML = classes.length
+            ? classOptions
+            : '<option value="">ยังไม่มีห้องเรียน</option>';
+          filterSelect.innerHTML =
+            '<option value="">ทุกห้องเรียน</option>' + classOptions;
+
+          if (
+            classes.some(function (classRecord) {
+              return classRecord.classId === currentAttendanceClassId;
+            })
+          ) {
+            attendanceSelect.value = currentAttendanceClassId;
+          }
+
+          if (
+            classes.some(function (classRecord) {
+              return classRecord.classId === currentStudentClassId;
+            })
+          ) {
+            studentClassSelect.value = currentStudentClassId;
+          }
+
+          if (
+            currentFilterClassId === "" ||
+            classes.some(function (classRecord) {
+              return classRecord.classId === currentFilterClassId;
+            })
+          ) {
+            filterSelect.value = currentFilterClassId;
+          }
+        }
+
+        function renderClasses() {
+          const tableBody = byId("classesTableBody");
+          const classes = getClasses();
+
+          if (!getActiveTerm()) {
+            tableBody.innerHTML =
+              '<tr><td colspan="5"><div class="empty-state"><i class="bi bi-calendar3" aria-hidden="true"></i><p class="empty-state-title">ยังไม่ได้เลือกเทอม</p><p class="empty-state-text">ไปที่หน้าตั้งค่าเทอมเพื่อสร้างหรือเลือกเทอมปัจจุบัน</p></div></td></tr>';
+            return;
+          }
+
+          if (!classes.length) {
+            tableBody.innerHTML =
+              '<tr><td colspan="5"><div class="empty-state"><i class="bi bi-door-open" aria-hidden="true"></i><p class="empty-state-title">ยังไม่มีห้องเรียน</p><p class="empty-state-text">เพิ่มระดับชั้นและห้องเรียนเพื่อเริ่มจัดรายชื่อนักเรียน</p></div></td></tr>';
+            return;
+          }
+
+          tableBody.innerHTML = classes
+            .map(function (classRecord) {
+              return (
+                "<tr>" +
+                "<td><strong>" +
+                escapeHtml(classRecord.displayName) +
+                "</strong></td>" +
+                "<td>" +
+                escapeHtml(classRecord.level) +
+                "</td>" +
+                "<td>" +
+                escapeHtml(classRecord.room) +
+                "</td>" +
+                "<td>" +
+                escapeHtml(classRecord.sortOrder) +
+                "</td>" +
+                '<td class="action-cell">' +
+                '<button class="btn btn-outline-secondary btn-sm icon-button me-1" type="button" title="แก้ไข" data-class-action="edit" data-class-id="' +
+                escapeHtml(classRecord.classId) +
+                '"><i class="bi bi-pencil" aria-hidden="true"></i></button>' +
+                '<button class="btn btn-outline-danger btn-sm icon-button" type="button" title="ปิดใช้งาน" data-class-action="archive" data-class-id="' +
+                escapeHtml(classRecord.classId) +
+                '"><i class="bi bi-archive" aria-hidden="true"></i></button>' +
+                "</td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+        }
+
+        function renderStudents() {
+          const tableBody = byId("studentsTableBody");
+          const filterClassId = byId("studentFilterClassSelect").value;
+          const students = getStudents().filter(function (student) {
+            return !filterClassId || student.classId === filterClassId;
+          });
+
+          if (!getActiveTerm()) {
+            tableBody.innerHTML =
+              '<tr><td colspan="6"><div class="empty-state"><i class="bi bi-calendar3" aria-hidden="true"></i><p class="empty-state-title">ยังไม่ได้เลือกเทอม</p><p class="empty-state-text">ไปที่หน้าตั้งค่าเทอมเพื่อสร้างหรือเลือกเทอมปัจจุบัน</p></div></td></tr>';
+            return;
+          }
+
+          if (!getClasses().length) {
+            tableBody.innerHTML =
+              '<tr><td colspan="6"><div class="empty-state"><i class="bi bi-door-open" aria-hidden="true"></i><p class="empty-state-title">ยังไม่มีห้องเรียน</p><p class="empty-state-text">เพิ่มห้องเรียนก่อนเพิ่มรายชื่อนักเรียน</p></div></td></tr>';
+            return;
+          }
+
+          if (!students.length) {
+            tableBody.innerHTML =
+              '<tr><td colspan="6"><div class="empty-state"><i class="bi bi-people" aria-hidden="true"></i><p class="empty-state-title">ยังไม่มีรายชื่อนักเรียน</p><p class="empty-state-text">เพิ่มนักเรียนในห้องเรียนที่ต้องการ</p></div></td></tr>';
+            return;
+          }
+
+          tableBody.innerHTML = students
+            .map(function (student) {
+              return (
+                "<tr>" +
+                "<td><strong>" +
+                escapeHtml(student.studentCode) +
+                "</strong></td>" +
+                "<td>" +
+                escapeHtml(getStudentName(student)) +
+                "</td>" +
+                "<td>" +
+                escapeHtml(student.gender) +
+                "</td>" +
+                "<td>" +
+                escapeHtml(getClassName(student.classId)) +
+                "</td>" +
+                "<td>" +
+                escapeHtml(student.sortOrder) +
+                "</td>" +
+                '<td class="action-cell">' +
+                '<button class="btn btn-outline-secondary btn-sm icon-button me-1" type="button" title="แก้ไข" data-student-action="edit" data-student-id="' +
+                escapeHtml(student.studentId) +
+                '"><i class="bi bi-pencil" aria-hidden="true"></i></button>' +
+                '<button class="btn btn-outline-danger btn-sm icon-button" type="button" title="ปิดใช้งาน" data-student-action="archive" data-student-id="' +
+                escapeHtml(student.studentId) +
+                '"><i class="bi bi-archive" aria-hidden="true"></i></button>' +
+                "</td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+        }
+
+        function renderAttendance() {
+          const content = byId("attendanceContent");
+          const saveButton = byId("saveAttendanceButton");
+          saveButton.disabled = true;
+
+          if (!getActiveTerm()) {
+            content.innerHTML =
+              '<div class="empty-state"><i class="bi bi-calendar3" aria-hidden="true"></i><p class="empty-state-title">ยังไม่ได้เลือกเทอม</p><p class="empty-state-text">เลือกเทอมปัจจุบันก่อนเช็คชื่อ</p></div>';
+            return;
+          }
+
+          if (!getClasses().length) {
+            content.innerHTML =
+              '<div class="empty-state"><i class="bi bi-door-open" aria-hidden="true"></i><p class="empty-state-title">ยังไม่มีห้องเรียน</p><p class="empty-state-text">เพิ่มห้องเรียนและรายชื่อนักเรียนก่อนเช็คชื่อ</p></div>';
+            return;
+          }
+
+          if (!state.attendanceSession) {
+            content.innerHTML =
+              '<div class="empty-state"><i class="bi bi-ui-checks-grid" aria-hidden="true"></i><p class="empty-state-title">พร้อมโหลดรายชื่อ</p><p class="empty-state-text">เลือกวันที่และห้องเรียน แล้วกดโหลดรายชื่อ</p></div>';
+            return;
+          }
+
+          const session = state.attendanceSession;
+          const summary = session.summary;
+          saveButton.disabled = session.students.length === 0;
+
+          if (!session.students.length) {
+            content.innerHTML =
+              '<div class="empty-state"><i class="bi bi-person-x" aria-hidden="true"></i><p class="empty-state-title">ยังไม่มีนักเรียนในห้องนี้</p><p class="empty-state-text">เพิ่มรายชื่อนักเรียนก่อนบันทึกเช็คชื่อ</p></div>';
+            return;
+          }
+
+          content.innerHTML =
+            '<div class="panel-header">' +
+            "<div>" +
+            '<h3 class="panel-title">' +
+            escapeHtml(session.classRecord.displayName) +
+            " | " +
+            escapeHtml(session.date) +
+            "</h3>" +
+            '<div class="mt-2"><span class="status-pill ' +
+            (summary.complete ? "success" : "warning") +
+            '">' +
+            (summary.complete ? "เช็คชื่อครบ" : "ยังไม่ครบ") +
+            " " +
+            summary.recordedStudents +
+            "/" +
+            summary.totalStudents +
+            "</span></div>" +
+            "</div>" +
+            "</div>" +
+            '<div class="panel-body">' +
+            '<div class="table-responsive">' +
+            '<table class="table table-hover align-middle">' +
+            "<thead><tr><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead>" +
+            "<tbody>" +
+            session.students
+              .map(function (student) {
+                return (
+                  "<tr>" +
+                  "<td><strong>" +
+                  escapeHtml(student.studentCode) +
+                  "</strong></td>" +
+                  "<td>" +
+                  escapeHtml(getStudentName(student)) +
+                  (student.saved
+                    ? ' <span class="status-pill success ms-2">บันทึกแล้ว</span>'
+                    : ' <span class="status-pill neutral ms-2">ยังไม่บันทึก</span>') +
+                  "</td>" +
+                  '<td><div class="attendance-statuses">' +
+                  getStatuses()
+                    .map(function (status) {
+                      const isActive = student.attendanceStatus === status;
+                      return (
+                        '<button type="button" class="btn btn-outline-secondary btn-sm attendance-status-button ' +
+                        (isActive ? "active" : "") +
+                        '" data-status-student="' +
+                        escapeHtml(student.studentId) +
+                        '" data-status="' +
+                        escapeHtml(status) +
+                        '">' +
+                        '<i class="bi ' +
+                        escapeHtml(statusIcons[status] || "bi-dot") +
+                        '" aria-hidden="true"></i> ' +
+                        escapeHtml(status) +
+                        "</button>"
+                      );
+                    })
+                    .join("") +
+                  "</div></td>" +
+                  '<td><input class="form-control form-control-sm note-input" data-note-student="' +
+                  escapeHtml(student.studentId) +
+                  '" value="' +
+                  escapeHtml(student.note) +
+                  '" placeholder="หมายเหตุ" /></td>' +
+                  "</tr>"
+                );
+              })
+              .join("") +
+            "</tbody></table></div></div>";
+        }
+
+        function updateActionAvailability() {
+          const hasActiveTerm = Boolean(getActiveTerm());
+          const hasClasses = getClasses().length > 0;
+          byId("addClassButton").disabled = !hasActiveTerm;
+          byId("addStudentButton").disabled = !hasActiveTerm || !hasClasses;
+          byId("loadAttendanceButton").disabled = !hasActiveTerm || !hasClasses;
+        }
+
+        function showView(viewName) {
+          state.view = viewName;
+          document.querySelectorAll("[data-nav-view]").forEach(function (button) {
+            button.classList.toggle(
+              "active",
+              button.dataset.navView === viewName,
+            );
+          });
+          document
+            .querySelectorAll("[data-view-panel]")
+            .forEach(function (panel) {
+              panel.classList.toggle(
+                "active",
+                panel.dataset.viewPanel === viewName,
+              );
+            });
+        }
+
+        function openClassModal(classRecord) {
+          byId("classForm").reset();
+          byId("classId").value = classRecord ? classRecord.classId : "";
+          byId("classLevel").value = classRecord ? classRecord.level : "";
+          byId("classRoom").value = classRecord ? classRecord.room : "";
+          byId("classSortOrder").value = classRecord
+            ? classRecord.sortOrder
+            : "";
+          byId("classModalTitle").textContent = classRecord
+            ? "แก้ไขห้องเรียน"
+            : "เพิ่มห้องเรียน";
+          state.classModal.show();
+        }
+
+        function openStudentModal(student) {
+          const selectedFilterClassId = byId("studentFilterClassSelect").value;
+          const defaultClassId =
+            selectedFilterClassId || (getClasses()[0] && getClasses()[0].classId) || "";
+
+          byId("studentForm").reset();
+          byId("studentId").value = student ? student.studentId : "";
+          byId("studentClassId").value = student
+            ? student.classId
+            : defaultClassId;
+          byId("studentCode").value = student ? student.studentCode : "";
+          byId("studentPrefix").value = student ? student.prefix : "";
+          byId("studentFirstName").value = student ? student.firstName : "";
+          byId("studentLastName").value = student ? student.lastName : "";
+          byId("studentGender").value = student ? student.gender : "ชาย";
+          byId("studentSortOrder").value = student ? student.sortOrder : "";
+          byId("studentModalTitle").textContent = student
+            ? "แก้ไขนักเรียน"
+            : "เพิ่มนักเรียน";
+          state.studentModal.show();
+        }
+
+        async function loadAttendanceSession() {
+          const date = byId("attendanceDate").value;
+          const classId = byId("attendanceClassSelect").value;
+
+          if (!date || !classId) {
+            showMessage("warning", "กรุณาเลือกวันที่และห้องเรียน");
+            return;
+          }
+
+          setLoading(true);
+          try {
+            state.attendanceSession = await server(
+              "_getAttendanceSession",
+              authToken,
+              date,
+              classId,
+            );
+            renderAttendance();
+          } catch (error) {
+            showMessage(
+              "danger",
+              getErrorMessage(error, "ไม่สามารถโหลดรายชื่อเช็คชื่อได้"),
+            );
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        function bindEvents() {
+          document.querySelectorAll("[data-nav-view]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              showView(button.dataset.navView);
+            });
+          });
+
+          byId("termSelect").addEventListener("change", async function () {
+            if (!this.value) {
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await server("_setActiveTerm", authToken, this.value);
+              state.attendanceSession = null;
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "เปลี่ยนเทอมปัจจุบันสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถเปลี่ยนเทอมปัจจุบันได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("logoutButton").addEventListener("click", function () {
+            const button = this;
+            button.disabled = true;
+            button.innerHTML =
+              '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> กำลังออกจากระบบ';
+
+            google.script.run
+              .withSuccessHandler(function (result) {
+                window.top.location.href =
+                  result && result.redirectUrl ? result.redirectUrl : appUrl;
+              })
+              .withFailureHandler(function (error) {
+                button.disabled = false;
+                button.innerHTML =
+                  '<i class="bi bi-box-arrow-right" aria-hidden="true"></i> ออกจากระบบ';
+                showMessage(
+                  "danger",
+                  getErrorMessage(error, "ไม่สามารถออกจากระบบได้"),
+                );
+              })
+              ._logout(authToken);
+          });
+
+          byId("useSuggestedFolder").addEventListener("click", function () {
+            if (
+              !state.app ||
+              !state.app.suggestedTermFolder ||
+              !state.app.suggestedTermFolder.folderId
+            ) {
+              return;
+            }
+
+            byId("termFolderId").value = state.app.suggestedTermFolder.folderId;
+            byId("termFolderId").focus();
+          });
+
+          byId("folderForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            if (!this.checkValidity()) {
+              this.classList.add("was-validated");
+              showMessage("warning", "กรุณากรอก Folder ID");
+              return;
+            }
+
+            setLoading(true);
+            try {
+              const result = await server(
+                "_saveTermFolderId",
+                authToken,
+                byId("termFolderId").value,
+              );
+              await loadAppState({ keepMessage: true });
+              showMessage(
+                "success",
+                "บันทึก Folder สำเร็จ: " + result.folderName,
+              );
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถบันทึก Folder ได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("termForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            if (!this.checkValidity()) {
+              this.classList.add("was-validated");
+              showMessage("warning", "กรุณากรอกปีการศึกษาและเทอม");
+              return;
+            }
+
+            setLoading(true);
+            try {
+              const term = await server(
+                "_createAcademicTerm",
+                authToken,
+                byId("academicYear").value,
+                byId("academicTerm").value,
+              );
+              this.reset();
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "สร้างเทอม " + term.termKey + " สำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถสร้างเทอมได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("termsTableBody").addEventListener("click", async function (event) {
+            const button = event.target.closest("[data-term-action]");
+            if (!button) {
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await server("_setActiveTerm", authToken, button.dataset.termKey);
+              state.attendanceSession = null;
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "ตั้งค่าเทอมปัจจุบันสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถตั้งค่าเทอมปัจจุบันได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("addClassButton").addEventListener("click", function () {
+            openClassModal(null);
+          });
+
+          byId("classForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            if (!this.checkValidity()) {
+              this.classList.add("was-validated");
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await server("_saveClass", authToken, {
+                classId: byId("classId").value,
+                level: byId("classLevel").value,
+                room: byId("classRoom").value,
+                sortOrder: byId("classSortOrder").value,
+              });
+              state.classModal.hide();
+              state.attendanceSession = null;
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "บันทึกห้องเรียนสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถบันทึกห้องเรียนได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("classesTableBody").addEventListener("click", async function (
+            event,
+          ) {
+            const button = event.target.closest("[data-class-action]");
+            if (!button) {
+              return;
+            }
+
+            const classRecord = getClasses().find(function (record) {
+              return record.classId === button.dataset.classId;
+            });
+
+            if (!classRecord) {
+              return;
+            }
+
+            if (button.dataset.classAction === "edit") {
+              openClassModal(classRecord);
+              return;
+            }
+
+            if (
+              !window.confirm(
+                "ปิดใช้งานห้องเรียน " + classRecord.displayName + " หรือไม่",
+              )
+            ) {
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await server("_archiveClass", authToken, classRecord.classId);
+              state.attendanceSession = null;
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "ปิดใช้งานห้องเรียนสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถปิดใช้งานห้องเรียนได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("addStudentButton").addEventListener("click", function () {
+            openStudentModal(null);
+          });
+
+          byId("studentForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            if (!this.checkValidity()) {
+              this.classList.add("was-validated");
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await server("_saveStudent", authToken, {
+                studentId: byId("studentId").value,
+                classId: byId("studentClassId").value,
+                studentCode: byId("studentCode").value,
+                prefix: byId("studentPrefix").value,
+                firstName: byId("studentFirstName").value,
+                lastName: byId("studentLastName").value,
+                gender: byId("studentGender").value,
+                sortOrder: byId("studentSortOrder").value,
+              });
+              state.studentModal.hide();
+              state.attendanceSession = null;
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "บันทึกรายชื่อนักเรียนสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถบันทึกรายชื่อนักเรียนได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("studentsTableBody").addEventListener("click", async function (
+            event,
+          ) {
+            const button = event.target.closest("[data-student-action]");
+            if (!button) {
+              return;
+            }
+
+            const student = getStudents().find(function (record) {
+              return record.studentId === button.dataset.studentId;
+            });
+
+            if (!student) {
+              return;
+            }
+
+            if (button.dataset.studentAction === "edit") {
+              openStudentModal(student);
+              return;
+            }
+
+            if (
+              !window.confirm(
+                "ปิดใช้งานรายชื่อ " + getStudentName(student) + " หรือไม่",
+              )
+            ) {
+              return;
+            }
+
+            setLoading(true);
+            try {
+              await server("_archiveStudent", authToken, student.studentId);
+              state.attendanceSession = null;
+              await loadAppState({ keepMessage: true });
+              showMessage("success", "ปิดใช้งานรายชื่อนักเรียนสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถปิดใช้งานรายชื่อนักเรียนได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+
+          byId("studentFilterClassSelect").addEventListener("change", function () {
+            renderStudents();
+          });
+
+          byId("loadAttendanceButton").addEventListener(
+            "click",
+            loadAttendanceSession,
+          );
+
+          byId("attendanceDate").addEventListener("change", function () {
+            state.attendanceSession = null;
+            renderAttendance();
+          });
+
+          byId("attendanceClassSelect").addEventListener("change", function () {
+            state.attendanceSession = null;
+            renderAttendance();
+          });
+
+          byId("attendanceContent").addEventListener("click", function (event) {
+            const button = event.target.closest("[data-status-student]");
+            if (!button || !state.attendanceSession) {
+              return;
+            }
+
+            const student = state.attendanceSession.students.find(function (
+              record,
+            ) {
+              return record.studentId === button.dataset.statusStudent;
+            });
+
+            if (!student) {
+              return;
+            }
+
+            student.attendanceStatus = button.dataset.status;
+            renderAttendance();
+          });
+
+          byId("attendanceContent").addEventListener("input", function (event) {
+            const input = event.target.closest("[data-note-student]");
+            if (!input || !state.attendanceSession) {
+              return;
+            }
+
+            const student = state.attendanceSession.students.find(function (
+              record,
+            ) {
+              return record.studentId === input.dataset.noteStudent;
+            });
+
+            if (student) {
+              student.note = input.value;
+            }
+          });
+
+          byId("saveAttendanceButton").addEventListener("click", async function () {
+            if (!state.attendanceSession) {
+              return;
+            }
+
+            setLoading(true);
+            try {
+              state.attendanceSession = await server(
+                "_saveAttendance",
+                authToken,
+                state.attendanceSession.date,
+                state.attendanceSession.classId,
+                state.attendanceSession.students.map(function (student) {
+                  return {
+                    studentId: student.studentId,
+                    status: student.attendanceStatus,
+                    note: student.note || "",
+                  };
+                }),
+              );
+              await loadAppState({ keepMessage: true });
+              renderAttendance();
+              showMessage("success", "บันทึกเช็คชื่อสำเร็จ");
+            } catch (error) {
+              showMessage(
+                "danger",
+                getErrorMessage(error, "ไม่สามารถบันทึกเช็คชื่อได้"),
+              );
+            } finally {
+              setLoading(false);
+            }
+          });
+        }
+
+        state.classModal = new bootstrap.Modal(byId("classModal"));
+        state.studentModal = new bootstrap.Modal(byId("studentModal"));
+        byId("attendanceDate").value = getTodayDate();
+        bindEvents();
+        loadAppState();
       })();
     </script>
   </body>
