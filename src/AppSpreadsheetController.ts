@@ -15,7 +15,7 @@ class AppSpreadsheetController {
   private spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet;
 
   private constructor() {
-    const spreadsheetId = AppPropertiesSetting.getInstance().getSpreadsheetId();
+    const spreadsheetId = AppPropertiesController.getInstance().getSpreadsheetId();
     if (!spreadsheetId) {
       throw new Error("SPREADSHEET_ID ยังไม่ได้ตั้งค่า");
     }

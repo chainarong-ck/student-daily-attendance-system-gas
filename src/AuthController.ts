@@ -34,7 +34,7 @@ class AuthController {
   }
 
   public verifyLoginPassword(password: string): string | null {
-    const appPassword = AppPropertiesSetting.getInstance().getPassword();
+    const appPassword = AppPropertiesController.getInstance().getPassword();
 
     if (password !== appPassword) {
       return null;

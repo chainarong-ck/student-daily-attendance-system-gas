@@ -26,7 +26,7 @@ function _saveSetupConfig(
   appSpreadsheetName: string;
   passwordConfigured: boolean;
 } {
-  const scriptProperties = AppPropertiesSetting.getInstance();
+  const scriptProperties = AppPropertiesController.getInstance();
   const currentSpreadsheetId = scriptProperties.getSpreadsheetId();
   const needsSpreadsheetId = !currentSpreadsheetId;
   const needsPassword = !scriptProperties.getPassword();
@@ -78,11 +78,11 @@ function _saveSetupConfig(
   scriptProperties.setMultipleProperties({
     ...(needsSpreadsheetId &&
       normalizedId && {
-        [AppPropertiesSetting.FIELDS.APP_SPREADSHEET_ID]: normalizedId,
+        [AppPropertiesController.FIELDS.APP_SPREADSHEET_ID]: normalizedId,
       }),
     ...(needsPassword &&
       normalizedPassword && {
-        [AppPropertiesSetting.FIELDS.APP_PASSWORD]: normalizedPassword,
+        [AppPropertiesController.FIELDS.APP_PASSWORD]: normalizedPassword,
       }),
   });
 

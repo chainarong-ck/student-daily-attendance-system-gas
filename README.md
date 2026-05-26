@@ -31,7 +31,7 @@
 ├── src/
 │   ├── Code.ts
 │   ├── AppController.ts
-│   ├── AppPropertiesSetting.ts
+│   ├── AppPropertiesController.ts
 │   ├── AppSpreadsheetController.ts
 │   ├── AuthController.ts
 │   ├── CacheController.ts

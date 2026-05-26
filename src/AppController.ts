@@ -1,11 +1,11 @@
 class AppController {
   private static instance: AppController;
   private authController: AuthController;
-  private appPropertiesSetting: AppPropertiesSetting;
+  private appPropertiesSetting: AppPropertiesController;
 
   private constructor() {
     this.authController = AuthController.getInstance();
-    this.appPropertiesSetting = AppPropertiesSetting.getInstance();
+    this.appPropertiesSetting = AppPropertiesController.getInstance();
   }
 
   public static getInstance() {

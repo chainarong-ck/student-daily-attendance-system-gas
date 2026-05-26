@@ -1,12 +1,12 @@
-class AppPropertiesSetting {
-  private static instance: AppPropertiesSetting;
+class AppPropertiesController {
+  private static instance: AppPropertiesController;
   public static FIELDS = {
     APP_SPREADSHEET_ID: "APP_SPREADSHEET_ID",
     APP_PASSWORD: "APP_PASSWORD",
   };
   private static REQUIRED_FIELDS = [
-    AppPropertiesSetting.FIELDS.APP_SPREADSHEET_ID,
-    AppPropertiesSetting.FIELDS.APP_PASSWORD,
+    AppPropertiesController.FIELDS.APP_SPREADSHEET_ID,
+    AppPropertiesController.FIELDS.APP_PASSWORD,
   ];
   private scriptProperties: GoogleAppsScript.Properties.Properties;
   private data: { [key: string]: string };
@@ -18,11 +18,11 @@ class AppPropertiesSetting {
     this.loaded = false;
   }
 
-  public static getInstance(): AppPropertiesSetting {
-    if (!AppPropertiesSetting.instance) {
-      AppPropertiesSetting.instance = new AppPropertiesSetting();
+  public static getInstance(): AppPropertiesController {
+    if (!AppPropertiesController.instance) {
+      AppPropertiesController.instance = new AppPropertiesController();
     }
-    return AppPropertiesSetting.instance;
+    return AppPropertiesController.instance;
   }
 
   private loadProperties(): void {
@@ -34,14 +34,14 @@ class AppPropertiesSetting {
     if (!this.loaded) {
       this.loadProperties();
     }
-    return this.data[AppPropertiesSetting.FIELDS.APP_SPREADSHEET_ID] || null;
+    return this.data[AppPropertiesController.FIELDS.APP_SPREADSHEET_ID] || null;
   }
 
   public getPassword(): string | null {
     if (!this.loaded) {
       this.loadProperties();
     }
-    return this.data[AppPropertiesSetting.FIELDS.APP_PASSWORD] || null;
+    return this.data[AppPropertiesController.FIELDS.APP_PASSWORD] || null;
   }
 
   public getRequiredFieldsMissing(): string[] {
@@ -49,7 +49,7 @@ class AppPropertiesSetting {
       this.loadProperties();
     }
     const missingFields: string[] = [];
-    for (const field of AppPropertiesSetting.REQUIRED_FIELDS) {
+    for (const field of AppPropertiesController.REQUIRED_FIELDS) {
       if (!this.data[field] || this.data[field] === "") {
         missingFields.push(field);
       }
@@ -59,24 +59,24 @@ class AppPropertiesSetting {
 
   public setSpreadsheetId(spreadsheetId: string): void {
     this.scriptProperties.setProperty(
-      AppPropertiesSetting.FIELDS.APP_SPREADSHEET_ID,
+      AppPropertiesController.FIELDS.APP_SPREADSHEET_ID,
       spreadsheetId,
     );
-    this.data[AppPropertiesSetting.FIELDS.APP_SPREADSHEET_ID] = spreadsheetId;
+    this.data[AppPropertiesController.FIELDS.APP_SPREADSHEET_ID] = spreadsheetId;
   }
 
   public setPassword(password: string): void {
     this.scriptProperties.setProperty(
-      AppPropertiesSetting.FIELDS.APP_PASSWORD,
+      AppPropertiesController.FIELDS.APP_PASSWORD,
       password,
     );
-    this.data[AppPropertiesSetting.FIELDS.APP_PASSWORD] = password;
+    this.data[AppPropertiesController.FIELDS.APP_PASSWORD] = password;
   }
 
   public setMultipleProperties(properties: { [key: string]: string }): void {
     const setData: { [key: string]: string } = {};
 
-    for (const field of Object.values(AppPropertiesSetting.FIELDS)) {
+    for (const field of Object.values(AppPropertiesController.FIELDS)) {
       if (field in properties) {
         setData[field] = properties[field];
       }
