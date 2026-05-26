@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <title>เข้าสู่ระบบ - ระบบบันทึกการเข้าเรียนรายวัน</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wdth,wght@62.5..100,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+    />
+    <style>
+      :root {
+        --app-font-family:
+          "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        --app-bg: #eef2f7;
+        --app-panel: #ffffff;
+        --app-text: #1f2937;
+        --app-muted: #6b7280;
+        --app-border: #d8dee9;
+        --app-soft-border: #e5eaf2;
+        --app-primary: #0f766e;
+        --app-primary-hover: #0b5f59;
+        --app-primary-soft: #e6f4f1;
+        --app-blue: #2563eb;
+        --app-blue-soft: #eef4ff;
+        --app-amber: #b45309;
+        --app-amber-soft: #fff7ed;
+        --bs-body-font-family: var(--app-font-family);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: linear-gradient(180deg, #f7fafc 0%, var(--app-bg) 100%);
+        color: var(--app-text);
+        font-family: var(--app-font-family);
+      }
+
+      button,
+      input,
+      optgroup,
+      textarea,
+      select {
+        font-family: var(--app-font-family);
+      }
+
+      .login-shell {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .login-page {
+        width: min(100%, 960px);
+        margin: 0 auto;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 24px 20px;
+      }
+
+      .login-panel {
+        width: 100%;
+        background: var(--app-panel);
+        border: 1px solid var(--app-border);
+        border-radius: 8px;
+        box-shadow: 0 18px 45px rgba(31, 41, 55, 0.08);
+        display: grid;
+        grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+        overflow: hidden;
+      }
+
+      .login-header {
+        padding: 32px;
+        background: #0f766e;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 32px;
+      }
+
+      .login-title {
+        margin: 0;
+        font-size: 1.7rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        line-height: 1.3;
+      }
+
+      .login-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        margin-bottom: 18px;
+      }
+
+      .login-eyebrow {
+        margin: 0 0 10px;
+        color: #b7ebe3;
+        font-size: 0.85rem;
+        font-weight: 750;
+      }
+
+      .login-subtitle {
+        margin: 12px 0 0;
+        color: #dbf7f2;
+        line-height: 1.65;
+      }
+
+      .login-summary {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+      }
+
+      .login-summary-item {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .login-summary-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+      }
+
+      .login-summary-label {
+        margin: 0;
+        color: #d6f3ee;
+        font-size: 0.88rem;
+      }
+
+      .login-summary-value {
+        margin: 2px 0 0;
+        color: #ffffff;
+        font-weight: 700;
+      }
+
+      .login-body {
+        padding: 32px;
+      }
+
+      .login-form-heading {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        padding-bottom: 24px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--app-soft-border);
+      }
+
+      .login-form-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: var(--app-primary-soft);
+        color: var(--app-primary);
+      }
+
+      .login-form-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 750;
+        letter-spacing: 0;
+      }
+
+      .login-form-description {
+        margin: 4px 0 0;
+        color: var(--app-muted);
+        line-height: 1.6;
+      }
+
+      .form-label {
+        font-weight: 650;
+      }
+
+      .form-control:focus {
+        border-color: var(--app-primary);
+        box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.16);
+      }
+
+      .input-help {
+        margin: 8px 0 0;
+        color: var(--app-muted);
+        font-size: 0.92rem;
+        line-height: 1.5;
+      }
+
+      .btn-primary {
+        --bs-btn-bg: var(--app-primary);
+        --bs-btn-border-color: var(--app-primary);
+        --bs-btn-hover-bg: var(--app-primary-hover);
+        --bs-btn-hover-border-color: var(--app-primary-hover);
+        --bs-btn-active-bg: var(--app-primary-hover);
+        --bs-btn-active-border-color: var(--app-primary-hover);
+      }
+
+      .btn {
+        border-radius: 8px;
+        font-weight: 650;
+      }
+
+      .message-space {
+        min-height: 58px;
+      }
+
+      .app-footer {
+        width: min(100%, 960px);
+        margin: 0 auto;
+        padding: 0 24px 24px;
+        color: var(--app-muted);
+        font-size: 0.92rem;
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      .app-footer a {
+        color: var(--app-primary);
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      .app-footer a:hover {
+        color: var(--app-primary-hover);
+        text-decoration: underline;
+      }
+
+      .footer-divider {
+        color: #9aa6b2;
+        padding: 0 6px;
+      }
+
+      @media (max-width: 860px) {
+        .login-panel {
+          grid-template-columns: 1fr;
+        }
+
+        .login-header {
+          gap: 22px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .login-page {
+          align-items: flex-start;
+          padding: 14px;
+        }
+
+        .login-header,
+        .login-body {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+
+        .app-footer {
+          padding: 0 14px 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-shell">
+      <main class="login-page">
+        <section class="login-panel" aria-labelledby="loginTitle">
+          <header class="login-header">
+            <div>
+              <span class="login-icon">
+                <i class="bi bi-calendar2-check" aria-hidden="true"></i>
+              </span>
+              <p class="login-eyebrow">ยืนยันตัวตน</p>
+              <h1 id="loginTitle" class="login-title">
+                เข้าสู่ระบบบันทึกการเข้าเรียนรายวัน
+              </h1>
+              <p class="login-subtitle">
+                กรอกรหัสผ่านที่ตั้งค่าไว้
+                เพื่อเข้าสู่หน้าจัดการข้อมูลการเข้าเรียนของนักเรียน
+              </p>
+            </div>
+
+            <div class="login-summary" aria-label="ข้อมูลระบบ">
+              <div class="login-summary-item">
+                <span class="login-summary-icon">
+                  <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                </span>
+                <div>
+                  <p class="login-summary-label">สถานะระบบ</p>
+                  <p class="login-summary-value">พร้อมใช้งาน</p>
+                </div>
+              </div>
+
+              <div class="login-summary-item">
+                <span class="login-summary-icon">
+                  <i class="bi bi-shield-check" aria-hidden="true"></i>
+                </span>
+                <div>
+                  <p class="login-summary-label">การเข้าถึง</p>
+                  <p class="login-summary-value">ต้องใช้รหัสผ่าน</p>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div class="login-body">
+            <div class="login-form-heading">
+              <span class="login-form-icon">
+                <i class="bi bi-shield-lock" aria-hidden="true"></i>
+              </span>
+              <div>
+                <h2 class="login-form-title">เข้าสู่ระบบ</h2>
+                <p class="login-form-description">
+                  ระบบจะตรวจสอบรหัสผ่านก่อนพาไปยังหน้าหลัก
+                </p>
+              </div>
+            </div>
+
+            <form id="loginForm" novalidate>
+              <div class="mb-4">
+                <label class="form-label" for="password">รหัสผ่าน</label>
+                <div class="input-group">
+                  <input
+                    id="password"
+                    class="form-control"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    aria-describedby="passwordHelp"
+                    required
+                  />
+                  <button
+                    id="togglePassword"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    aria-label="แสดงหรือซ่อนรหัสผ่าน"
+                  >
+                    <i
+                      id="togglePasswordIcon"
+                      class="bi bi-eye"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                </div>
+                <p id="passwordHelp" class="input-help">
+                  ใช้รหัสผ่านเดียวกับที่กำหนดไว้ในขั้นตอนตั้งค่าระบบ
+                </p>
+              </div>
+
+              <div class="message-space">
+                <div id="loginMessage" class="d-none" role="status"></div>
+              </div>
+
+              <button
+                id="submitButton"
+                type="submit"
+                class="btn btn-primary w-100"
+              >
+                <span
+                  id="submitSpinner"
+                  class="spinner-border spinner-border-sm d-none"
+                  aria-hidden="true"
+                ></span>
+                <i
+                  id="submitIcon"
+                  class="bi bi-box-arrow-in-right"
+                  aria-hidden="true"
+                ></i>
+                <span id="submitText">เข้าสู่ระบบ</span>
+              </button>
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        © 2026
+        <a
+          href="https://github.com/chainarong-ck/student-daily-attendance-system-gas"
+          rel="noopener"
+        >
+          ระบบบันทึกการเข้าเรียนรายวัน
+        </a>
+        <span class="footer-divider">|</span>
+        พัฒนาโดย
+        <a href="https://github.com/chainarong-ck" rel="noopener">
+          นายชัยณรงค์ คงพล
+        </a>
+      </footer>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      (function () {
+        const form = document.getElementById("loginForm");
+        const passwordInput = document.getElementById("password");
+        const message = document.getElementById("loginMessage");
+        const submitButton = document.getElementById("submitButton");
+        const submitIcon = document.getElementById("submitIcon");
+        const submitSpinner = document.getElementById("submitSpinner");
+        const submitText = document.getElementById("submitText");
+        const togglePassword = document.getElementById("togglePassword");
+        const togglePasswordIcon =
+          document.getElementById("togglePasswordIcon");
+
+        function setLoading(isLoading) {
+          submitButton.disabled = isLoading;
+          submitSpinner.classList.toggle("d-none", !isLoading);
+          submitIcon.classList.toggle("d-none", isLoading);
+          submitText.textContent = isLoading
+            ? "กำลังเข้าสู่ระบบ"
+            : "เข้าสู่ระบบ";
+        }
+
+        function showMessage(type, text) {
+          message.className = "alert alert-" + type;
+          message.textContent = text;
+        }
+
+        togglePassword.addEventListener("click", function () {
+          const shouldShow = passwordInput.type === "password";
+          passwordInput.type = shouldShow ? "text" : "password";
+          togglePasswordIcon.className = shouldShow
+            ? "bi bi-eye-slash"
+            : "bi bi-eye";
+          passwordInput.focus();
+        });
+
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          if (!form.checkValidity()) {
+            form.classList.add("was-validated");
+            showMessage("warning", "กรุณากรอกรหัสผ่าน");
+            return;
+          }
+
+          setLoading(true);
+          showMessage("secondary", "กำลังตรวจสอบรหัสผ่าน");
+
+          google.script.run
+            .withSuccessHandler(function (result) {
+              showMessage("success", "เข้าสู่ระบบสำเร็จ");
+              window.top.location.href = result.redirectUrl;
+            })
+            .withFailureHandler(function (error) {
+              setLoading(false);
+              showMessage(
+                "danger",
+                error && error.message
+                  ? error.message
+                  : "ไม่สามารถเข้าสู่ระบบได้",
+              );
+            })
+            ._login(passwordInput.value);
+        });
+
+        passwordInput.focus();
+      })();
+    </script>
+  </body>
+</html>

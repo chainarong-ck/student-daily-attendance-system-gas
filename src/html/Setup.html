@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <title>ตั้งค่าระบบ - ระบบบันทึกการเข้าเรียนรายวัน</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wdth,wght@62.5..100,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+    />
+    <style>
+      :root {
+        --app-font-family:
+          "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        --app-bg: #eef2f7;
+        --app-panel: #ffffff;
+        --app-text: #1f2937;
+        --app-muted: #6b7280;
+        --app-border: #d8dee9;
+        --app-soft-border: #e5eaf2;
+        --app-primary: #0f766e;
+        --app-primary-hover: #0b5f59;
+        --app-primary-soft: #e6f4f1;
+        --app-blue: #2563eb;
+        --app-blue-soft: #eef4ff;
+        --app-amber: #b45309;
+        --app-amber-soft: #fff7ed;
+        --bs-body-font-family: var(--app-font-family);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: linear-gradient(180deg, #f7fafc 0%, var(--app-bg) 100%);
+        color: var(--app-text);
+        font-family: var(--app-font-family);
+      }
+
+      button,
+      input,
+      optgroup,
+      textarea,
+      select {
+        font-family: var(--app-font-family);
+      }
+
+      .setup-shell {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .setup-page {
+        width: min(100%, 1060px);
+        margin: 0 auto;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 24px 20px;
+      }
+
+      .setup-panel {
+        width: 100%;
+        background: var(--app-panel);
+        border: 1px solid var(--app-border);
+        border-radius: 8px;
+        box-shadow: 0 18px 45px rgba(31, 41, 55, 0.08);
+        display: grid;
+        grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+        overflow: hidden;
+      }
+
+      .setup-header {
+        padding: 32px;
+        background: #0f766e;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 32px;
+      }
+
+      .setup-title {
+        margin: 0;
+        font-size: 1.7rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        line-height: 1.3;
+      }
+
+      .setup-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        margin-bottom: 18px;
+      }
+
+      .setup-eyebrow {
+        margin: 0 0 10px;
+        color: #b7ebe3;
+        font-size: 0.85rem;
+        font-weight: 750;
+      }
+
+      .setup-subtitle {
+        margin: 12px 0 0;
+        color: #dbf7f2;
+        line-height: 1.65;
+      }
+
+      .setup-summary {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+      }
+
+      .setup-summary-item {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .setup-summary-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+      }
+
+      .setup-summary-label {
+        margin: 0;
+        color: #d6f3ee;
+        font-size: 0.88rem;
+      }
+
+      .setup-summary-value {
+        margin: 2px 0 0;
+        color: #ffffff;
+        font-weight: 700;
+      }
+
+      .setup-body {
+        padding: 32px;
+      }
+
+      .form-section {
+        padding: 0 0 24px;
+        margin: 0 0 24px;
+        border-bottom: 1px solid var(--app-soft-border);
+      }
+
+      .form-section:last-of-type {
+        margin-bottom: 18px;
+      }
+
+      .section-heading {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 14px;
+      }
+
+      .section-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: var(--app-primary-soft);
+        color: var(--app-primary);
+      }
+
+      .section-icon.password {
+        background: var(--app-blue-soft);
+        color: var(--app-blue);
+      }
+
+      .section-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 750;
+        letter-spacing: 0;
+      }
+
+      .section-description {
+        margin: 4px 0 0;
+        color: var(--app-muted);
+        line-height: 1.6;
+      }
+
+      .form-label {
+        font-weight: 650;
+      }
+
+      .form-control:focus {
+        border-color: var(--app-primary);
+        box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.16);
+      }
+
+      .input-help {
+        margin: 8px 0 0;
+        color: var(--app-muted);
+        font-size: 0.92rem;
+        line-height: 1.5;
+      }
+
+      .btn-primary {
+        --bs-btn-bg: var(--app-primary);
+        --bs-btn-border-color: var(--app-primary);
+        --bs-btn-hover-bg: var(--app-primary-hover);
+        --bs-btn-hover-border-color: var(--app-primary-hover);
+        --bs-btn-active-bg: var(--app-primary-hover);
+        --bs-btn-active-border-color: var(--app-primary-hover);
+      }
+
+      .btn {
+        border-radius: 8px;
+        font-weight: 650;
+      }
+
+      .configured-value {
+        background: #eef2f7;
+        border: 1px solid var(--app-border);
+        border-radius: 8px;
+        color: #374151;
+        min-height: 44px;
+        padding: 10px 12px;
+        word-break: break-all;
+      }
+
+      .detected-spreadsheet {
+        margin-top: 16px;
+        border: 1px solid #bfe4dd;
+        border-radius: 8px;
+        background: #f3fbf9;
+        overflow: hidden;
+      }
+
+      .detected-spreadsheet-copy {
+        padding: 14px 14px 0;
+      }
+
+      .detected-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--app-primary);
+        font-size: 0.88rem;
+        font-weight: 750;
+      }
+
+      .detected-description {
+        margin: 8px 0 0;
+        color: #2f4f4a;
+        line-height: 1.6;
+      }
+
+      .container-spreadsheet {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+        padding: 14px;
+        border-top: 1px solid #cce8e3;
+        background: #ffffff;
+      }
+
+      .container-spreadsheet-name {
+        font-weight: 650;
+      }
+
+      .container-spreadsheet-id {
+        color: var(--app-muted);
+        font-size: 0.9rem;
+        word-break: break-all;
+      }
+
+      .message-space {
+        min-height: 58px;
+      }
+
+      .setup-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .app-footer {
+        width: min(100%, 1060px);
+        margin: 0 auto;
+        padding: 0 24px 24px;
+        color: var(--app-muted);
+        font-size: 0.92rem;
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      .app-footer a {
+        color: var(--app-primary);
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      .app-footer a:hover {
+        color: var(--app-primary-hover);
+        text-decoration: underline;
+      }
+
+      .footer-divider {
+        color: #9aa6b2;
+        padding: 0 6px;
+      }
+
+      @media (max-width: 860px) {
+        .setup-panel {
+          grid-template-columns: 1fr;
+        }
+
+        .setup-header {
+          gap: 22px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .setup-page {
+          align-items: flex-start;
+          padding: 14px;
+        }
+
+        .setup-header,
+        .setup-body {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+
+        .container-spreadsheet {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .setup-actions {
+          display: grid;
+        }
+
+        .setup-actions .btn {
+          width: 100%;
+        }
+
+        .app-footer {
+          padding: 0 14px 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="setup-shell">
+      <main class="setup-page">
+        <section class="setup-panel" aria-labelledby="setupTitle">
+          <header class="setup-header">
+            <div>
+              <span class="setup-icon">
+                <i class="bi bi-calendar2-check" aria-hidden="true"></i>
+              </span>
+              <p class="setup-eyebrow">เริ่มต้นใช้งาน</p>
+              <h1 id="setupTitle" class="setup-title">
+                ตั้งค่าระบบบันทึกการเข้าเรียนรายวัน
+              </h1>
+              <p class="setup-subtitle">
+                เชื่อมต่อ Google Sheet
+                สำหรับจัดเก็บข้อมูลและกำหนดรหัสผ่านก่อนเปิดใช้งานระบบ
+              </p>
+            </div>
+
+            <div class="setup-summary" aria-label="รายการตั้งค่าที่จำเป็น">
+              <div class="setup-summary-item">
+                <span class="setup-summary-icon">
+                  <i class="bi bi-table" aria-hidden="true"></i>
+                </span>
+                <div>
+                  <p class="setup-summary-label">สเปรดชีตหลัก</p>
+                  <p class="setup-summary-value">
+                    <? if (needsSpreadsheetId) { ?>รอตั้งค่า<? } else {
+                    ?>ตั้งค่าแล้ว<? } ?>
+                  </p>
+                </div>
+              </div>
+
+              <div class="setup-summary-item">
+                <span class="setup-summary-icon">
+                  <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                </span>
+                <div>
+                  <p class="setup-summary-label">รหัสผ่านระบบ</p>
+                  <p class="setup-summary-value">
+                    <? if (needsPassword) { ?>รอตั้งค่า<? } else {
+                    ?>ตั้งค่าแล้ว<? } ?>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div class="setup-body">
+            <form id="setupForm" novalidate>
+              <section class="form-section" aria-labelledby="spreadsheetTitle">
+                <div class="section-heading">
+                  <span class="section-icon">
+                    <i class="bi bi-database-check" aria-hidden="true"></i>
+                  </span>
+                  <div>
+                    <h2 id="spreadsheetTitle" class="section-title">
+                      สเปรดชีตหลัก
+                    </h2>
+                    <p class="section-description">
+                      ระบบจะใช้ Spreadsheet นี้เป็นฐานข้อมูลหลักสำหรับระบบ
+                    </p>
+                  </div>
+                </div>
+
+                <? if (needsSpreadsheetId) { ?>
+                <label class="form-label" for="spreadsheetId">
+                  Spreadsheet ID หรือ URL
+                </label>
+                <input
+                  id="spreadsheetId"
+                  class="form-control"
+                  name="spreadsheetId"
+                  placeholder="วาง Spreadsheet ID หรือ URL ของ Google Sheet"
+                  autocomplete="off"
+                  aria-describedby="spreadsheetHelp"
+                  required
+                />
+                <p id="spreadsheetHelp" class="input-help">
+                  สามารถคัดลอก URL จากแถบที่อยู่ของ Google Sheet หรือกรอกเฉพาะ
+                  Spreadsheet ID ได้
+                </p>
+
+                <? if (containerSpreadsheet) { ?>
+                <div class="detected-spreadsheet">
+                  <div class="detected-spreadsheet-copy">
+                    <span class="detected-badge">
+                      <i class="bi bi-info-circle" aria-hidden="true"></i>
+                      พบ Google Sheet ที่เชื่อมอยู่
+                    </span>
+                    <p class="detected-description">
+                      ระบบพบว่า Apps Script นี้ทำงานอยู่ภายใต้ Google Sheet ชื่อ
+                      <strong><?= containerSpreadsheet.name ?></strong>
+                      ต้องการใช้ Spreadsheet นี้เป็น Spreadsheet
+                      หลักของระบบเลยหรือไม่
+                    </p>
+                  </div>
+
+                  <div class="container-spreadsheet">
+                    <div>
+                      <div class="container-spreadsheet-name">
+                        <?= containerSpreadsheet.name ?>
+                      </div>
+                      <div class="container-spreadsheet-id">
+                        <?= containerSpreadsheet.id ?>
+                      </div>
+                    </div>
+                    <button
+                      id="useContainerSpreadsheet"
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      data-spreadsheet-id="<?= containerSpreadsheet.id ?>"
+                    >
+                      <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                      ใช้ไฟล์นี้
+                    </button>
+                  </div>
+                </div>
+                <? } ?> <? } else { ?>
+                <div class="configured-value">
+                  <?= currentSpreadsheetId || "-" ?>
+                </div>
+                <? } ?>
+              </section>
+
+              <section class="form-section" aria-labelledby="passwordTitle">
+                <div class="section-heading">
+                  <span class="section-icon password">
+                    <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                  </span>
+                  <div>
+                    <h2 id="passwordTitle" class="section-title">
+                      รหัสผ่านเข้าใช้งาน
+                    </h2>
+                    <p class="section-description">
+                      ใช้รหัสผ่านนี้สำหรับเข้าสู่หน้าระบบหลังจากตั้งค่าเสร็จ
+                    </p>
+                  </div>
+                </div>
+
+                <? if (needsPassword) { ?>
+                <label class="form-label" for="password">รหัสผ่าน</label>
+                <input
+                  id="password"
+                  class="form-control"
+                  name="password"
+                  type="password"
+                  minlength="6"
+                  autocomplete="new-password"
+                  aria-describedby="passwordHelp"
+                  required
+                />
+                <p id="passwordHelp" class="input-help">
+                  กำหนดรหัสผ่านอย่างน้อย 6 ตัวอักษร
+                </p>
+                <? } else { ?>
+                <div class="configured-value">ตั้งค่าแล้ว</div>
+                <? } ?>
+              </section>
+
+              <div class="message-space">
+                <div id="setupMessage" class="d-none" role="status"></div>
+              </div>
+
+              <div class="setup-actions">
+                <button id="submitButton" type="submit" class="btn btn-primary">
+                  <span
+                    id="submitSpinner"
+                    class="spinner-border spinner-border-sm d-none"
+                    aria-hidden="true"
+                  ></span>
+                  <i id="submitIcon" class="bi bi-save" aria-hidden="true"></i>
+                  <span id="submitText">บันทึกการตั้งค่า</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        © 2026
+        <a
+          href="https://github.com/chainarong-ck/student-daily-attendance-system-gas"
+          rel="noopener"
+        >
+          ระบบบันทึกการเข้าเรียนรายวัน
+        </a>
+        <span class="footer-divider">|</span>
+        พัฒนาโดย
+        <a href="https://github.com/chainarong-ck" rel="noopener">
+          นายชัยณรงค์ คงพล
+        </a>
+      </footer>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      (function () {
+        const appUrl = "<?= appUrl ?>";
+        const form = document.getElementById("setupForm");
+        const message = document.getElementById("setupMessage");
+        const submitButton = document.getElementById("submitButton");
+        const submitIcon = document.getElementById("submitIcon");
+        const submitSpinner = document.getElementById("submitSpinner");
+        const submitText = document.getElementById("submitText");
+        const useContainerButton = document.getElementById(
+          "useContainerSpreadsheet",
+        );
+
+        function getValue(id) {
+          const input = document.getElementById(id);
+          return input ? input.value : "";
+        }
+
+        function setLoading(isLoading) {
+          submitButton.disabled = isLoading;
+          submitSpinner.classList.toggle("d-none", !isLoading);
+          submitIcon.classList.toggle("d-none", isLoading);
+          submitText.textContent = isLoading
+            ? "กำลังบันทึก"
+            : "บันทึกการตั้งค่า";
+        }
+
+        function showMessage(type, text) {
+          message.className = "alert alert-" + type;
+          message.textContent = text;
+        }
+
+        if (useContainerButton) {
+          useContainerButton.addEventListener("click", function () {
+            const spreadsheetInput = document.getElementById("spreadsheetId");
+            spreadsheetInput.value =
+              useContainerButton.dataset.spreadsheetId || "";
+            spreadsheetInput.focus();
+          });
+        }
+
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          if (!form.checkValidity()) {
+            form.classList.add("was-validated");
+            showMessage("warning", "กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
+            return;
+          }
+
+          setLoading(true);
+          showMessage("secondary", "กำลังตรวจสอบและบันทึกการตั้งค่า");
+
+          google.script.run
+            .withSuccessHandler(function (result) {
+              showMessage(
+                "success",
+                "บันทึกการตั้งค่าสำเร็จ: " + result.appSpreadsheetName,
+              );
+              setTimeout(function () {
+                if (appUrl) {
+                  window.top.location.href = appUrl;
+                  return;
+                }
+                window.top.location.reload();
+              }, 800);
+            })
+            .withFailureHandler(function (error) {
+              setLoading(false);
+              showMessage(
+                "danger",
+                error && error.message
+                  ? error.message
+                  : "ไม่สามารถบันทึกการตั้งค่าได้",
+              );
+            })
+            ._saveSetupConfig(getValue("spreadsheetId"), getValue("password"));
+        });
+      })();
+    </script>
+  </body>
+</html>
