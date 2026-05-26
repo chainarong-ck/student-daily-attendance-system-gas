@@ -82,7 +82,7 @@ class AppSpreadsheetController {
 
   public getSettings(): AppSettingMap {
     const sheet = this.getAppSettingsSheet();
-    const values = sheet.getDataRange().getValues();
+    const values = sheet.getDataRange().getDisplayValues();
     const settings: AppSettingMap = {};
 
     for (let rowIndex = 1; rowIndex < values.length; rowIndex += 1) {
@@ -109,18 +109,22 @@ class AppSpreadsheetController {
     }
 
     const sheet = this.getAppSettingsSheet();
-    const values = sheet.getDataRange().getValues();
+    const values = sheet.getDataRange().getDisplayValues();
     const normalizedValue = String(value || "").trim();
 
     for (let rowIndex = 1; rowIndex < values.length; rowIndex += 1) {
       if (String(values[rowIndex][0] || "").trim() === normalizedKey) {
-        sheet.getRange(rowIndex + 1, 2).setValue(normalizedValue);
+        sheet
+          .getRange(rowIndex + 1, 2)
+          .setNumberFormat("@")
+          .setValue(normalizedValue);
         return;
       }
     }
 
     sheet
       .getRange(sheet.getLastRow() + 1, 1, 1, 2)
+      .setNumberFormat("@")
       .setValues([[normalizedKey, normalizedValue]]);
   }
 
@@ -181,7 +185,7 @@ class AppSpreadsheetController {
 
   public listAcademicTerms(): AcademicTermRecord[] {
     const sheet = this.getAcademicTermsSheet();
-    const values = sheet.getDataRange().getValues();
+    const values = sheet.getDataRange().getDisplayValues();
     const terms: AcademicTermRecord[] = [];
 
     for (let rowIndex = 1; rowIndex < values.length; rowIndex += 1) {
@@ -300,6 +304,7 @@ class AppSpreadsheetController {
         1,
         AppSpreadsheetController.ACADEMIC_TERM_HEADERS.length,
       )
+      .setNumberFormat("@")
       .setValues([
         AppSpreadsheetController.ACADEMIC_TERM_HEADERS.map(
           (header) => record[header as keyof typeof record] || "",
