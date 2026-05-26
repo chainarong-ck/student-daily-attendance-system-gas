@@ -442,6 +442,7 @@
         const togglePassword = document.getElementById("togglePassword");
         const togglePasswordIcon =
           document.getElementById("togglePasswordIcon");
+        const loginRedirectParams = JSON.parse("<?= loginRedirectParams ?>");
 
         function setLoading(isLoading) {
           submitButton.disabled = isLoading;
@@ -492,7 +493,7 @@
                   : "ไม่สามารถเข้าสู่ระบบได้",
               );
             })
-            ._login(passwordInput.value);
+            ._login(passwordInput.value, loginRedirectParams);
         });
 
         passwordInput.focus();

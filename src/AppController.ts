@@ -23,6 +23,21 @@ class AppController {
     }
   }
 
+  public static buildWebAppUrlWithParams(params: { [key: string]: string }) {
+    const webUrl = AppController.getWebAppUrl();
+    const queryString = Object.keys(params)
+      .filter((key) => params[key] !== undefined && params[key] !== null)
+      .map((key) => key + "=" + String(params[key]))
+      .join("&");
+
+    if (!queryString) {
+      return webUrl;
+    }
+
+    const separator = webUrl.indexOf("?") >= 0 ? "&" : "?";
+    return webUrl + separator + queryString;
+  }
+
   public doGet(
     event: GoogleAppsScript.Events.DoGet,
   ): GoogleAppsScript.HTML.HtmlOutput {
@@ -34,7 +49,7 @@ class AppController {
 
     const authToken = params[AuthController.AUTH_QUERY_PARAM] || "";
     if (!this.authController.isAuthorizedSession(authToken)) {
-      return this.renderLogin();
+      return this.renderLogin(params);
     }
 
     return this.renderIndex(authToken);
@@ -65,9 +80,16 @@ class AppController {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
-  private renderLogin(): GoogleAppsScript.HTML.HtmlOutput {
+  private renderLogin(params: {
+    [key: string]: string;
+  }): GoogleAppsScript.HTML.HtmlOutput {
+    const redirectParams = { ...params };
+    delete redirectParams[AuthController.AUTH_QUERY_PARAM];
+
     const template = HtmlService.createTemplateFromFile("Login");
     template.appUrl = AppController.getWebAppUrl();
+    template.loginRedirectParams = JSON.stringify(redirectParams);
+
     return template
       .evaluate()
       .setTitle("เข้าสู่ระบบ - บันทึกการเข้าเรียนรายวัน")

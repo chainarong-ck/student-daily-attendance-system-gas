@@ -4,17 +4,20 @@ function doGet(
   return AppController.getInstance().doGet(event);
 }
 
-function _login(password: string): { redirectUrl: string } {
+function _login(
+  password: string,
+  redirectParams: { [key: string]: string } = {},
+): { redirectUrl: string } {
   const token = AuthController.getInstance().verifyLoginPassword(password);
   if (!token) {
     throw new Error("รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
   }
-  const webUrl = AppController.getWebAppUrl();
-  const separator = webUrl.indexOf("?") >= 0 ? "&" : "?";
 
   return {
-    redirectUrl:
-      webUrl + separator + AuthController.AUTH_QUERY_PARAM + "=" + token,
+    redirectUrl: AppController.buildWebAppUrlWithParams({
+      ...redirectParams,
+      [AuthController.AUTH_QUERY_PARAM]: token,
+    }),
   };
 }
 
