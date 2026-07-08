@@ -10,12 +10,12 @@ import {
     APP_TOKEN_KEY,
     escapeHtml,
     messageText,
+    navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
     showNotice,
     todayText,
-    webAppUrl,
 } from "./client-utils";
 
 const statusLabels: Record<AttendanceStatus, string> = {
@@ -32,14 +32,14 @@ let currentSession: AttendanceClassSession | null = null;
 async function main(): Promise<void> {
     token = localStorage.getItem(APP_TOKEN_KEY) ?? "";
     if (!token) {
-        window.location.href = webAppUrl("Login");
+        navigateTo("Login");
         return;
     }
     try {
         bootstrap = await googleScriptRun("getIndexBootstrap", token);
     } catch {
         localStorage.removeItem(APP_TOKEN_KEY);
-        window.location.href = webAppUrl("Login");
+        navigateTo("Login");
         return;
     }
     render();

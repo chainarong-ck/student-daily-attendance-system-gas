@@ -4,6 +4,7 @@ import {
     ADMIN_TOKEN_KEY,
     APP_TOKEN_KEY,
     messageText,
+    navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
@@ -61,7 +62,7 @@ async function login(
                 : await googleScriptRun("loginApp", password);
         localStorage.setItem(role === "admin" ? ADMIN_TOKEN_KEY : APP_TOKEN_KEY, result.token);
         showNotice("loginNotice", "เข้าสู่ระบบสำเร็จ", "ok");
-        window.location.href = webAppUrl(role === "admin" ? "Admin" : "Index");
+        navigateTo(role === "admin" ? "Admin" : "Index");
     } catch (error) {
         showNotice("loginNotice", messageText(error), "error");
     } finally {

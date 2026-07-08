@@ -4,11 +4,11 @@ import {
     ADMIN_TOKEN_KEY,
     escapeHtml,
     messageText,
+    navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
     showNotice,
-    webAppUrl,
 } from "./client-utils";
 
 let token = "";
@@ -17,14 +17,14 @@ let state: AdminBootstrap;
 async function main(): Promise<void> {
     token = localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
     if (!token) {
-        window.location.href = `${webAppUrl("Login")}&role=admin`;
+        navigateTo("Login", { role: "admin" });
         return;
     }
     try {
         state = await googleScriptRun("getAdminBootstrap", token);
     } catch {
         localStorage.removeItem(ADMIN_TOKEN_KEY);
-        window.location.href = `${webAppUrl("Login")}&role=admin`;
+        navigateTo("Login", { role: "admin" });
         return;
     }
     render();

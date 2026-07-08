@@ -1,11 +1,11 @@
 import { googleScriptRun } from "../../shared/gas-client";
 import {
     messageText,
+    navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
     showNotice,
-    webAppUrl,
 } from "./client-utils";
 
 async function main(): Promise<void> {
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
 
     const state = await googleScriptRun("getPublicSystemState");
     if (state.initialized) {
-        window.location.href = webAppUrl("Login");
+        navigateTo("Login");
         return;
     }
 
@@ -84,7 +84,7 @@ async function submitSetup(
             },
         });
         showNotice("setupNotice", "ตั้งค่าระบบสำเร็จ กำลังไปหน้า Login", "ok");
-        window.location.href = webAppUrl("Login");
+        navigateTo("Login");
     } catch (error) {
         showNotice("setupNotice", messageText(error), "error");
     } finally {

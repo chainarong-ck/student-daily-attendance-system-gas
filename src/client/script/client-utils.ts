@@ -12,6 +12,14 @@ export function webAppUrl(page?: string): string {
     return page ? `${base}?page=${encodeURIComponent(page)}` : base;
 }
 
+export function navigateTo(page: string, params?: Record<string, string>): void {
+    const url = new URL(webAppUrl(page));
+    Object.entries(params ?? {}).forEach(([key, value]) => {
+        url.searchParams.set(key, value);
+    });
+    window.open(url.toString(), "_top");
+}
+
 export function todayText(): string {
     const now = new Date();
     const year = now.getFullYear();
