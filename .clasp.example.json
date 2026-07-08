@@ -1,0 +1,16 @@
+{
+  "scriptId": "ใส่_scriptId_ของคุณ_ที่นี่",
+  "rootDir": ".build",
+  "scriptExtensions": [
+    ".js",
+    ".gs"
+  ],
+  "htmlExtensions": [
+    ".html"
+  ],
+  "jsonExtensions": [
+    ".json"
+  ],
+  "filePushOrder": [],
+  "skipSubdirectories": false
+}
