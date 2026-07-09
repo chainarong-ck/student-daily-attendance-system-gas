@@ -145,7 +145,7 @@ function academicYearPanel(): string {
         <p class="mb-3 text-sm text-slate-600">แก้ไขปีการศึกษา/เทอม และ Google Sheet ID ได้จากตารางนี้ เลือกแถวที่เป็นปีการศึกษาปัจจุบันก่อนบันทึก</p>
         <div class="mb-3 flex justify-end"><button id="addAcademicYearRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[760px] text-left text-sm">
+            <table class="w-full min-w-190 text-left text-sm">
                 <thead class="bg-slate-100"><tr><th class="p-2">ปัจจุบัน</th><th class="p-2">ปีการศึกษา</th><th class="p-2">เทอม</th><th class="p-2">Google Sheet URL หรือ ID</th><th class="p-2"></th></tr></thead>
                 <tbody id="academicYearRows">${state.config.academicYears
                     .map((year) =>
@@ -184,7 +184,7 @@ function classesPanel(): string {
         `
         <div class="mb-3 flex justify-end"><button id="addClassRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[520px] text-left text-sm">
+            <table class="w-full min-w-130 text-left text-sm">
                 <thead class="bg-slate-100"><tr><th class="p-2">ระดับชั้น</th><th class="p-2">ห้อง</th><th class="p-2"></th></tr></thead>
                 <tbody id="classRows">${state.classes.map(classRowHtml).join("")}</tbody>
             </table>
@@ -247,7 +247,7 @@ function studentsPanel(): string {
         </div>
         <div class="mb-3 flex justify-end"><button id="addStudentRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[720px] text-left text-sm">
+            <table class="w-full min-w-180 text-left text-sm">
                 <thead class="bg-slate-100"><tr><th class="p-2">เลขที่</th><th class="p-2">รหัสนักเรียน</th><th class="p-2">ชื่อ-สกุล</th><th class="p-2">สถานะ</th><th class="p-2"></th></tr></thead>
                 <tbody id="studentRows">${state.students
                     .filter((student) => student.classId === selectedClassId)
