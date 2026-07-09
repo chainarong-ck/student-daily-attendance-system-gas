@@ -128,6 +128,11 @@ export type SaveSystemSettingsPayload = {
     adminPassword?: string;
 };
 
+export type SaveAcademicYearsPayload = {
+    academicYears: AcademicYear[];
+    currentYearKey: string;
+};
+
 export type SaveAttendancePayload = {
     date: string;
     classId: string;

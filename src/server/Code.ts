@@ -12,6 +12,7 @@ import type {
     PublicSystemState,
     SaveAttendancePayload,
     SaveAttendanceResult,
+    SaveAcademicYearsPayload,
     SaveSystemSettingsPayload,
     SetupPayload,
     Student,
@@ -127,6 +128,14 @@ export function addAcademicYear(
 ): SystemConfig {
     AuthService.requireAdmin(adminToken);
     return AcademicYearService.addAcademicYear(payload);
+}
+
+export function saveAcademicYears(
+    adminToken: string,
+    payload: SaveAcademicYearsPayload,
+): SystemConfig {
+    AuthService.requireAdmin(adminToken);
+    return AcademicYearService.saveAcademicYears(payload);
 }
 
 export function setCurrentAcademicYear(

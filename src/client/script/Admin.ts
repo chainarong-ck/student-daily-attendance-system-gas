@@ -1,5 +1,11 @@
 import { googleScriptRun } from "../../shared/gas-client";
-import type { AdminBootstrap, ClassRoom, Student, StudentStatus } from "../../shared/types";
+import type {
+    AcademicYear,
+    AdminBootstrap,
+    ClassRoom,
+    Student,
+    StudentStatus,
+} from "../../shared/types";
 import {
     ADMIN_TOKEN_KEY,
     bindShellActions,
@@ -136,24 +142,33 @@ function academicYearPanel(): string {
     return panel(
         "ปีการศึกษา",
         `
-        <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <select id="currentYearSelect" class="rounded-md border border-slate-300 px-3 py-2">
-                ${state.config.academicYears
-                    .map((year) => {
-                        const key = `${year.y}-${year.t}`;
-                        return `<option value="${key}" ${key === currentKey ? "selected" : ""}>ปี ${year.y} เทอม ${year.t}</option>`;
-                    })
-                    .join("")}
-            </select>
-            <button id="setCurrentYearButton" class="rounded-md bg-slate-800 px-4 py-2 font-semibold text-white">ตั้งเป็นปัจจุบัน</button>
+        <p class="mb-3 text-sm text-slate-600">แก้ไขปีการศึกษา/เทอม และ Google Sheet ID ได้จากตารางนี้ เลือกแถวที่เป็นปีการศึกษาปัจจุบันก่อนบันทึก</p>
+        <div class="mb-3 flex justify-end"><button id="addAcademicYearRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] text-left text-sm">
+                <thead class="bg-slate-100"><tr><th class="p-2">ปัจจุบัน</th><th class="p-2">ปีการศึกษา</th><th class="p-2">เทอม</th><th class="p-2">Google Sheet URL หรือ ID</th><th class="p-2"></th></tr></thead>
+                <tbody id="academicYearRows">${state.config.academicYears
+                    .map((year) =>
+                        academicYearRowHtml(
+                            year,
+                            `${year.y}-${year.t}` === currentKey,
+                        ),
+                    )
+                    .join("")}</tbody>
+            </table>
         </div>
-        <form id="addYearForm" class="grid gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-[1fr_1fr_2fr_auto]">
-            <input name="year" type="number" placeholder="ปีการศึกษา" class="rounded-md border border-slate-300 px-3 py-2" />
-            <input name="term" type="number" placeholder="เทอม" class="rounded-md border border-slate-300 px-3 py-2" />
-            <input name="sheetId" placeholder="Google Sheet URL หรือ ID" class="rounded-md border border-slate-300 px-3 py-2" />
-            <button id="addYearButton" class="rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">เพิ่ม</button>
-        </form>`,
+        <button id="saveAcademicYearsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกปีการศึกษา</button>`,
     );
+}
+
+function academicYearRowHtml(row?: AcademicYear, current = false): string {
+    return `<tr class="border-b border-slate-100">
+        <td class="p-2 text-center"><input type="radio" name="currentAcademicYear" data-current-year ${current ? "checked" : ""} /></td>
+        <td class="p-2"><input data-field="year" type="number" value="${escapeHtml(row?.y ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
+        <td class="p-2"><input data-field="term" type="number" value="${escapeHtml(row?.t ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
+        <td class="p-2"><input data-field="sheetId" value="${escapeHtml(row?.id ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
+        <td class="p-2 text-right"><button data-remove-academic-year-row type="button" class="rounded-md bg-red-50 px-2 py-1 text-red-700">ลบ</button></td>
+    </tr>`;
 }
 
 function classesPanel(): string {
@@ -265,15 +280,27 @@ function bindSettings(): void {
 }
 
 function bindAcademicYears(): void {
-    const addForm = document.getElementById("addYearForm") as HTMLFormElement;
-    const addButton = document.getElementById("addYearButton") as HTMLButtonElement;
-    addForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        void addYear(addForm, addButton);
+    document.getElementById("addAcademicYearRowButton")?.addEventListener("click", () => {
+        const tbody = document.getElementById("academicYearRows");
+        const shouldSelect = tbody?.querySelector("[data-current-year]") === null;
+        tbody?.insertAdjacentHTML("beforeend", academicYearRowHtml(undefined, shouldSelect));
     });
-    document.getElementById("setCurrentYearButton")?.addEventListener("click", () => {
-        const button = document.getElementById("setCurrentYearButton") as HTMLButtonElement;
-        void setCurrentYear(button);
+    document.getElementById("academicYearRows")?.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement;
+        if (!target.matches("[data-remove-academic-year-row]")) {
+            return;
+        }
+        target.closest("tr")?.remove();
+        const checked = document.querySelector<HTMLInputElement>(
+            '[name="currentAcademicYear"]:checked',
+        );
+        if (!checked) {
+            document.querySelector<HTMLInputElement>("[data-current-year]")?.click();
+        }
+    });
+    document.getElementById("saveAcademicYearsButton")?.addEventListener("click", () => {
+        const button = document.getElementById("saveAcademicYearsButton") as HTMLButtonElement;
+        void saveAcademicYears(button);
     });
 }
 
@@ -344,32 +371,17 @@ async function saveSettings(form: HTMLFormElement, button: HTMLButtonElement): P
     }
 }
 
-async function addYear(form: HTMLFormElement, button: HTMLButtonElement): Promise<void> {
-    const data = new FormData(form);
-    setBusy(button, true, "กำลังเพิ่ม...");
+async function saveAcademicYears(button: HTMLButtonElement): Promise<void> {
+    setBusy(button, true, "กำลังบันทึก...");
     try {
-        state.config = await googleScriptRun("addAcademicYear", token, {
-            id: String(data.get("sheetId") ?? ""),
-            y: Number(data.get("year")),
-            t: Number(data.get("term")),
+        const { academicYears, currentYearKey } = readAcademicYearRows();
+        state.config = await googleScriptRun("saveAcademicYears", token, {
+            academicYears,
+            currentYearKey,
         });
-        render();
-        showNotice("adminNotice", "เพิ่มปีการศึกษาเรียบร้อย", "ok");
-    } catch (error) {
-        showNotice("adminNotice", messageText(error), "error");
-    } finally {
-        setBusy(button, false);
-    }
-}
-
-async function setCurrentYear(button: HTMLButtonElement): Promise<void> {
-    const key = (document.getElementById("currentYearSelect") as HTMLSelectElement).value;
-    setBusy(button, true, "กำลังตั้งค่า...");
-    try {
-        state.config = await googleScriptRun("setCurrentAcademicYear", token, key);
         state = await googleScriptRun("getAdminBootstrap", token);
         render();
-        showNotice("adminNotice", "ตั้งปีการศึกษาปัจจุบันเรียบร้อย", "ok");
+        showNotice("adminNotice", "บันทึกปีการศึกษาเรียบร้อย", "ok");
     } catch (error) {
         showNotice("adminNotice", messageText(error), "error");
     } finally {
@@ -421,6 +433,37 @@ function fieldValue(row: HTMLTableRowElement, field: string): string {
         `[data-field="${field}"]`,
     );
     return input?.value.trim() ?? "";
+}
+
+function readAcademicYearRows(): {
+    academicYears: AcademicYear[];
+    currentYearKey: string;
+} {
+    const rows = Array.from(
+        document.querySelectorAll<HTMLTableRowElement>("#academicYearRows tr"),
+    );
+    if (rows.length === 0) {
+        throw new Error("ต้องมีปีการศึกษา/เทอมอย่างน้อย 1 รายการ");
+    }
+    const checkedRow = rows.find(
+        (row) =>
+            row.querySelector<HTMLInputElement>('[name="currentAcademicYear"]')
+                ?.checked,
+    );
+    if (!checkedRow) {
+        throw new Error("กรุณาเลือกปีการศึกษาปัจจุบัน");
+    }
+    const academicYears = rows.map((row) => ({
+        id: fieldValue(row, "sheetId"),
+        y: Number(fieldValue(row, "year")),
+        t: Number(fieldValue(row, "term")),
+    }));
+    return {
+        academicYears,
+        currentYearKey: `${Number(fieldValue(checkedRow, "year"))}-${Number(
+            fieldValue(checkedRow, "term"),
+        )}`,
+    };
 }
 
 function readStudentRowsFromTable(classId = getSelectedStudentClassId()): Student[] {

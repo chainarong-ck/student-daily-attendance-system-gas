@@ -11,6 +11,7 @@ import type {
     PublicSystemState,
     SaveAttendancePayload,
     SaveAttendanceResult,
+    SaveAcademicYearsPayload,
     SaveSystemSettingsPayload,
     SetupPayload,
     Student,
@@ -36,6 +37,10 @@ declare global {
             addAcademicYear(
                 adminToken: string,
                 payload: AcademicYear,
+            ): SystemConfig;
+            saveAcademicYears(
+                adminToken: string,
+                payload: SaveAcademicYearsPayload,
             ): SystemConfig;
             setCurrentAcademicYear(
                 adminToken: string,
