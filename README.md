@@ -549,4 +549,7 @@ currentYear
 
 ## Credits
 
-พัฒนาโดย Chainarong_CK
+พัฒนาโดย นายชัยณรงค์ คงพล
+
+- GitHub: Chainarong-CK
+- URL: [https://github.com/chainarong-ck](https://github.com/chainarong-ck)

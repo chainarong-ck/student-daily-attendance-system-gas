@@ -133,7 +133,7 @@ export function setBusy(button: HTMLButtonElement, busy: boolean, label?: string
 }
 
 export function footerHtml(): string {
-    return `<footer class="mt-10 border-t border-slate-200 py-5 text-center text-sm text-slate-500">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย Chainarong CK</footer>`;
+    return `<footer class="mt-10 border-t border-slate-200 py-5 text-center text-sm text-slate-500">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย นายชัยณรงค์ คงพล | GitHub: <a href="https://github.com/chainarong-ck" target="_blank" rel="noopener noreferrer" class="font-medium text-orange-600">Chainarong-CK</a></footer>`;
 }
 
 export function shellHtml(title: string, body: string, options: ShellOptions): string {
