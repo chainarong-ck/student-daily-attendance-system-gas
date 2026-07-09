@@ -156,14 +156,15 @@ async function loadOverview(): Promise<void> {
             return;
         }
         content.innerHTML = `
-            <div class="mb-4 grid gap-3 sm:grid-cols-4">${summaryCards(overview.total)}</div>
+            <div class="mb-4 grid gap-3 sm:grid-cols-3">${studentCountCards(overview.studentCounts)}</div>
+            <div class="mb-4 grid gap-3 sm:grid-cols-4">${summaryCards(overview.total, overview.studentCounts.checked)}</div>
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[640px] text-left text-sm">
-                    <thead class="bg-slate-100"><tr><th class="p-2">ห้อง</th><th class="p-2">สถานะ</th><th class="p-2">มา</th><th class="p-2">ขาด</th><th class="p-2">สาย</th><th class="p-2">ลา</th></tr></thead>
+                    <thead class="bg-slate-100"><tr><th class="p-2">ห้อง</th><th class="p-2">นักเรียนทั้งหมด</th><th class="p-2">สถานะ</th><th class="p-2">มา</th><th class="p-2">ขาด</th><th class="p-2">สาย</th><th class="p-2">ลา</th></tr></thead>
                     <tbody>${overview.classes
                         .map(
                             (row) =>
-                                `<tr class="border-b border-slate-100"><td class="p-2">ม.${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-2">${row.checked ? "เช็คแล้ว" : "ยังไม่เช็ค"}</td><td class="p-2">${row.summary.present}</td><td class="p-2">${row.summary.absent}</td><td class="p-2">${row.summary.late}</td><td class="p-2">${row.summary.leave}</td></tr>`,
+                                `<tr class="border-b border-slate-100"><td class="p-2">ม.${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-2">${row.studentCount}</td><td class="p-2">${row.checked ? "เช็คแล้ว" : "ยังไม่เช็ค"}</td><td class="p-2">${row.summary.present}</td><td class="p-2">${row.summary.absent}</td><td class="p-2">${row.summary.late}</td><td class="p-2">${row.summary.leave}</td></tr>`,
                         )
                         .join("")}</tbody>
                 </table>
@@ -177,13 +178,37 @@ async function loadOverview(): Promise<void> {
     }
 }
 
-function summaryCards(summary: Record<AttendanceStatus, number>): string {
+function studentCountCards(counts: {
+    total: number;
+    checked: number;
+    unchecked: number;
+}): string {
+    return [
+        ["นักเรียนทั้งหมด", counts.total],
+        ["เช็คแล้ว", counts.checked],
+        ["ยังไม่ได้เช็ค", counts.unchecked],
+    ]
+        .map(
+            ([label, value]) =>
+                `<div class="rounded-lg border border-slate-200 bg-slate-50 p-4"><p class="text-sm text-slate-500">${label}</p><p class="text-3xl font-bold text-slate-800">${value}</p></div>`,
+        )
+        .join("");
+}
+
+function summaryCards(summary: Record<AttendanceStatus, number>, baseTotal: number): string {
     return (Object.keys(statusLabels) as AttendanceStatus[])
         .map(
             (status) =>
-                `<div class="rounded-lg border border-slate-200 p-4"><p class="text-sm text-slate-500">${statusLabels[status]}</p><p class="text-3xl font-bold text-orange-700">${summary[status]}</p></div>`,
+                `<div class="rounded-lg border border-slate-200 p-4"><p class="text-sm text-slate-500">${statusLabels[status]}</p><p class="text-3xl font-bold text-orange-700">${summary[status]}</p><p class="mt-2 text-sm font-medium text-slate-500">${formatPercent(summary[status], baseTotal)}</p></div>`,
         )
         .join("");
+}
+
+function formatPercent(value: number, total: number): string {
+    if (total <= 0) {
+        return "0%";
+    }
+    return `${((value / total) * 100).toFixed(1)}%`;
 }
 
 async function loadSession(): Promise<void> {
@@ -300,10 +325,14 @@ function renderStats(stats: AttendanceStats): void {
         <tbody>${stats.rows
             .map(
                 (row) =>
-                    `<tr class="border-b border-slate-100"><td class="p-2">${row.classRoom ? `ม.${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}` : "-"}</td><td class="p-2">${escapeHtml(row.student.number)}</td><td class="p-2">${escapeHtml(row.student.fullName)}</td><td class="p-2">${row.summary.present}</td><td class="p-2">${row.summary.absent}</td><td class="p-2">${row.summary.late}</td><td class="p-2">${row.summary.leave}</td><td class="p-2">${row.total}</td></tr>`,
+                    `<tr class="border-b border-slate-100"><td class="p-2">${row.classRoom ? `ม.${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}` : "-"}</td><td class="p-2">${escapeHtml(row.student.number)}</td><td class="p-2">${escapeHtml(row.student.fullName)}</td><td class="p-2">${statsCell(row.summary.present, row.total)}</td><td class="p-2">${statsCell(row.summary.absent, row.total)}</td><td class="p-2">${statsCell(row.summary.late, row.total)}</td><td class="p-2">${statsCell(row.summary.leave, row.total)}</td><td class="p-2">${row.total}</td></tr>`,
             )
             .join("")}</tbody>
     </table></div>`;
+}
+
+function statsCell(value: number, total: number): string {
+    return `<span class="font-medium text-slate-900">${value}</span><span class="ml-2 text-slate-500">${formatPercent(value, total)}</span>`;
 }
 
 void main().catch((error) => {

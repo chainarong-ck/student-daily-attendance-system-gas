@@ -90,6 +90,11 @@ export function bindShellActions(): void {
                 navigateTo("Login", role === "admin" ? { role: "admin" } : undefined);
             });
         });
+    document.querySelectorAll<HTMLButtonElement>("[data-close-notice]").forEach((button) => {
+        button.addEventListener("click", () => {
+            button.closest("[data-notice]")?.classList.add("hidden");
+        });
+    });
 }
 
 export function todayText(): string {
@@ -175,7 +180,7 @@ function logoutButton(options: ShellOptions): string {
 }
 
 export function noticeHtml(id: string): string {
-    return `<div id="${id}" class="mb-4 hidden rounded-md border px-4 py-3 text-sm"></div>`;
+    return `<div id="${id}" data-notice class="mb-4 hidden rounded-md border px-4 py-3 text-sm"><div class="flex items-start justify-between gap-3"><span data-notice-message></span><button type="button" data-close-notice class="rounded-md px-2 font-bold opacity-70 hover:bg-white hover:opacity-100" aria-label="ปิดข้อความแจ้งเตือน">X</button></div></div>`;
 }
 
 export function showNotice(id: string, text: string, tone: "ok" | "error" | "info"): void {
@@ -189,5 +194,8 @@ export function showNotice(id: string, text: string, tone: "ok" | "error" | "inf
         info: "border-orange-200 bg-orange-50 text-orange-800",
     };
     element.className = `mb-4 rounded-md border px-4 py-3 text-sm ${classes[tone]}`;
-    element.textContent = text;
+    const message = element.querySelector("[data-notice-message]");
+    if (message) {
+        message.textContent = text;
+    }
 }

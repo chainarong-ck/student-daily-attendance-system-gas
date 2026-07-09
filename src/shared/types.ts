@@ -72,8 +72,14 @@ export type AttendanceSummary = Record<AttendanceStatus, number>;
 
 export type AttendanceOverview = {
     date: string;
+    studentCounts: {
+        total: number;
+        checked: number;
+        unchecked: number;
+    };
     classes: Array<{
         classRoom: ClassRoom;
+        studentCount: number;
         checked: boolean;
         summary: AttendanceSummary;
     }>;

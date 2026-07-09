@@ -50,9 +50,30 @@ export class AttendanceService {
         ServerUtils.assertDateText(date);
         const classes = ClassService.listClasses();
         const records = this.listRecords().filter((record) => record.date === date);
+        const activeStudents = StudentService.listStudents().filter(
+            (student) => student.status === "active",
+        );
+        const activeStudentIds = new Set(activeStudents.map((student) => student.id));
+        const studentCountByClass = new Map<string, number>();
+        activeStudents.forEach((student) => {
+            studentCountByClass.set(
+                student.classId,
+                (studentCountByClass.get(student.classId) ?? 0) + 1,
+            );
+        });
+        const checkedStudentIds = new Set(
+            records
+                .filter((record) => activeStudentIds.has(record.studentId))
+                .map((record) => record.studentId),
+        );
         const total = ServerUtils.emptySummary();
         return {
             date,
+            studentCounts: {
+                total: activeStudents.length,
+                checked: checkedStudentIds.size,
+                unchecked: Math.max(activeStudents.length - checkedStudentIds.size, 0),
+            },
             classes: classes.map((classRoom) => {
                 const summary = ServerUtils.emptySummary();
                 const classRecords = records.filter(
@@ -64,6 +85,7 @@ export class AttendanceService {
                 });
                 return {
                     classRoom,
+                    studentCount: studentCountByClass.get(classRoom.id) ?? 0,
                     checked: classRecords.length > 0,
                     summary,
                 };
