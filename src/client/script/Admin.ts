@@ -107,8 +107,8 @@ function activateAdminTab(): void {
     });
 }
 
-function panel(title: string, content: string): string {
-    return `<section class="rounded-lg bg-white p-5 shadow-sm"><h2 class="mb-4 text-xl font-semibold">${title}</h2>${content}</section>`;
+function panel(title: string, content: string, subtitle?: string): string {
+    return `<section class="rounded-lg bg-white p-5 shadow-sm"><h2 class="mb-4 text-xl font-semibold">${title}${subtitle ? `<span class="ml-2 text-sm font-medium text-slate-500">${escapeHtml(subtitle)}</span>` : ""}</h2>${content}</section>`;
 }
 
 function settingsPanel(): string {
@@ -171,6 +171,13 @@ function academicYearRowHtml(row?: AcademicYear, current = false): string {
     </tr>`;
 }
 
+function currentAcademicYearLabel(): string {
+    const currentYear = state.config.currentYear;
+    return currentYear
+        ? `ปีการศึกษา ${currentYear.y} เทอม ${currentYear.t}`
+        : "ยังไม่ได้เลือกปีการศึกษาปัจจุบัน";
+}
+
 function classesPanel(): string {
     return panel(
         "ห้องเรียน",
@@ -183,6 +190,7 @@ function classesPanel(): string {
             </table>
         </div>
         <button id="saveClassesButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกห้องเรียน</button>`,
+        currentAcademicYearLabel(),
     );
 }
 
@@ -201,6 +209,7 @@ function studentsPanel(): string {
         return panel(
             "รายชื่อนักเรียน",
             `<p class="rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">กรุณาเพิ่มห้องเรียนก่อน จึงจะเพิ่มรายชื่อนักเรียนได้</p>`,
+            currentAcademicYearLabel(),
         );
     }
     return panel(
@@ -247,6 +256,7 @@ function studentsPanel(): string {
             </table>
         </div>
         <button id="saveStudentsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกรายชื่อนักเรียนห้องนี้</button>`,
+        currentAcademicYearLabel(),
     );
 }
 

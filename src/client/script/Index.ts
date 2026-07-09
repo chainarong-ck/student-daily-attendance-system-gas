@@ -60,8 +60,7 @@ function render(): void {
         <section id="overviewPanel" class="rounded-lg bg-white p-5 shadow-sm">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h2 class="text-xl font-semibold">ภาพรวมรายวัน</h2>
-                    <p class="text-sm text-slate-600">${currentYearText()}</p>
+                    ${sectionTitle("ภาพรวมรายวัน")}
                 </div>
                 <div class="flex gap-2">
                     <input id="overviewDate" type="date" value="${todayText()}" class="rounded-md border border-slate-300 px-3 py-2" />
@@ -71,6 +70,7 @@ function render(): void {
             <div id="overviewContent" class="text-sm text-slate-600">กำลังโหลด...</div>
         </section>
         <section id="attendancePanel" class="hidden rounded-lg bg-white p-5 shadow-sm">
+            ${sectionTitle("เช็คชื่อรายห้อง")}
             <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                 <select id="classSelect" class="rounded-md border border-slate-300 px-3 py-2">${classOptions(bootstrap.classes)}</select>
                 <input id="attendanceDate" type="date" value="${todayText()}" class="rounded-md border border-slate-300 px-3 py-2" />
@@ -79,6 +79,7 @@ function render(): void {
             <div id="attendanceContent" class="text-sm text-slate-600">เลือกห้องและวันที่เพื่อเริ่มเช็คชื่อ</div>
         </section>
         <section id="statsPanel" class="hidden rounded-lg bg-white p-5 shadow-sm">
+            ${sectionTitle("สถิติละเอียด")}
             <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
                 <input id="statsFrom" type="date" class="rounded-md border border-slate-300 px-3 py-2" />
                 <input id="statsTo" type="date" value="${todayText()}" class="rounded-md border border-slate-300 px-3 py-2" />
@@ -111,6 +112,10 @@ function render(): void {
 
 function tabButton(id: string, label: string, active: boolean): string {
     return `<button data-tab="${id}" class="rounded-md px-4 py-2 text-sm font-semibold ${active ? "bg-orange-600 text-white" : "bg-white text-slate-700"}">${label}</button>`;
+}
+
+function sectionTitle(title: string): string {
+    return `<h2 class="mb-4 text-xl font-semibold">${escapeHtml(title)}<span class="ml-2 text-sm font-medium text-slate-500">${escapeHtml(currentYearText())}</span></h2>`;
 }
 
 function activateTab(id: string): void {
