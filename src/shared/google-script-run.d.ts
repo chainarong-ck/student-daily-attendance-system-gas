@@ -6,6 +6,8 @@ import type {
     AttendanceStats,
     AttendanceStatsFilters,
     ClassRoom,
+    ForceDeleteStudentsPayload,
+    ForceDeleteStudentsResult,
     IndexBootstrap,
     LoginResult,
     PublicSystemState,
@@ -50,6 +52,10 @@ declare global {
             saveClasses(adminToken: string, rows: ClassRoom[]): ClassRoom[];
             listStudents(adminToken: string, classId?: string): Student[];
             saveStudents(adminToken: string, rows: Student[]): Student[];
+            forceDeleteStudents(
+                adminToken: string,
+                payload: ForceDeleteStudentsPayload,
+            ): ForceDeleteStudentsResult;
             getAttendanceClassSession(
                 token: string,
                 classId: string,

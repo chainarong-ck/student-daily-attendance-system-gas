@@ -1,4 +1,9 @@
-import type { Student, StudentStatus } from "../shared/types";
+import type {
+    ForceDeleteStudentsPayload,
+    ForceDeleteStudentsResult,
+    Student,
+    StudentStatus,
+} from "../shared/types";
 import { AcademicYearService } from "./AcademicYearService";
 import { ClassService } from "./ClassService";
 import { ServerConstant } from "./ServerConstant";
@@ -104,5 +109,54 @@ export class StudentService {
         );
         database.writeObjects("Students", normalized);
         return this.listStudents();
+    }
+
+    static forceDeleteStudents(
+        payload: ForceDeleteStudentsPayload,
+    ): ForceDeleteStudentsResult {
+        const studentIds = [
+            ...new Set(
+                (payload?.studentIds ?? [])
+                    .map((studentId) => ServerUtils.normalizeText(studentId))
+                    .filter((studentId) => studentId.length > 0),
+            ),
+        ];
+        ServerUtils.assert(
+            ServerUtils.normalizeText(payload?.confirmText) === "ลบถาวร",
+            "กรุณาพิมพ์คำยืนยันให้ถูกต้องก่อนบังคับลบ",
+        );
+        ServerUtils.assert(studentIds.length > 0, "กรุณาเลือกนักเรียนที่ต้องการลบ");
+        ServerUtils.assert(
+            studentIds.length <= 50,
+            "บังคับลบนักเรียนได้ครั้งละไม่เกิน 50 คน",
+        );
+
+        const database = AcademicYearService.ensureCurrentSheet();
+        const deleteIds = new Set(studentIds);
+        const students = database.readObjects("Students");
+        const existingStudentIds = new Set(students.map((student) => student.id));
+        const missingStudentId = studentIds.find(
+            (studentId) => !existingStudentIds.has(studentId),
+        );
+        ServerUtils.assert(!missingStudentId, "พบนักเรียนที่ไม่มีอยู่ในระบบแล้ว");
+
+        const remainingStudents = students.filter((student) => !deleteIds.has(student.id));
+        const deletedStudents = students.length - remainingStudents.length;
+        ServerUtils.assert(deletedStudents > 0, "ไม่พบนักเรียนที่ต้องการลบ");
+
+        const attendance = database.readObjects("Attendance");
+        const remainingAttendance = attendance.filter(
+            (record) => !deleteIds.has(record.studentId),
+        );
+        const deletedAttendanceRecords =
+            attendance.length - remainingAttendance.length;
+
+        database.writeObjects("Students", remainingStudents);
+        database.writeObjects("Attendance", remainingAttendance);
+
+        return {
+            deletedStudents,
+            deletedAttendanceRecords,
+        };
     }
 }

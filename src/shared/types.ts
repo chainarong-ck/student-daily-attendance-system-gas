@@ -139,6 +139,16 @@ export type SaveAcademicYearsPayload = {
     currentYearKey: string;
 };
 
+export type ForceDeleteStudentsPayload = {
+    studentIds: string[];
+    confirmText: string;
+};
+
+export type ForceDeleteStudentsResult = {
+    deletedStudents: number;
+    deletedAttendanceRecords: number;
+};
+
 export type SaveAttendancePayload = {
     date: string;
     classId: string;

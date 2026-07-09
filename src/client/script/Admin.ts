@@ -18,13 +18,14 @@ import {
     showNotice,
 } from "./client-utils";
 
-type AdminTab = "settings" | "years" | "classes" | "students";
+type AdminTab = "settings" | "years" | "classes" | "students" | "forceDelete";
+
+const forceDeleteConfirmText = "ลบถาวร";
 
 const studentCsvHeaders = [
     "number",
     "studentCode",
     "fullName",
-    "status",
 ] as const;
 
 let token = "";
@@ -58,12 +59,14 @@ function render(): void {
             ${adminTabButton("years", "ปีการศึกษา")}
             ${adminTabButton("classes", "ห้องเรียน")}
             ${adminTabButton("students", "รายชื่อนักเรียน")}
+            ${adminTabButton("forceDelete", "บังคับลบข้อมูล")}
         </div>
         <div class="grid gap-5">
             <div id="settingsAdminPanel" class="${activeAdminTab === "settings" ? "" : "hidden"}">${settingsPanel()}</div>
             <div id="yearsAdminPanel" class="${activeAdminTab === "years" ? "" : "hidden"}">${academicYearPanel()}</div>
             <div id="classesAdminPanel" class="${activeAdminTab === "classes" ? "" : "hidden"}">${classesPanel()}</div>
             <div id="studentsAdminPanel" class="${activeAdminTab === "students" ? "" : "hidden"}">${studentsPanel()}</div>
+            <div id="forceDeleteAdminPanel" class="${activeAdminTab === "forceDelete" ? "" : "hidden"}">${forceDeletePanel()}</div>
         </div>`,
         {
             activePage: "Admin",
@@ -77,6 +80,7 @@ function render(): void {
     bindAcademicYears();
     bindClasses();
     bindStudents();
+    bindForceDelete();
 }
 
 function adminTabButton(tab: AdminTab, label: string): string {
@@ -93,7 +97,7 @@ function bindAdminTabs(): void {
 }
 
 function activateAdminTab(): void {
-    (["settings", "years", "classes", "students"] as AdminTab[]).forEach((tab) => {
+    (["settings", "years", "classes", "students", "forceDelete"] as AdminTab[]).forEach((tab) => {
         document
             .getElementById(`${tab}AdminPanel`)
             ?.classList.toggle("hidden", activeAdminTab !== tab);
@@ -167,7 +171,7 @@ function academicYearRowHtml(row?: AcademicYear, current = false): string {
         <td class="p-2"><input data-field="year" type="number" value="${escapeHtml(row?.y ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><input data-field="term" type="number" value="${escapeHtml(row?.t ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><input data-field="sheetId" value="${escapeHtml(row?.id ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2 text-right"><button data-remove-academic-year-row type="button" class="rounded-md bg-red-50 px-2 py-1 text-red-700">ลบ</button></td>
+        ${deleteActionCellHtml()}
     </tr>`;
 }
 
@@ -198,7 +202,7 @@ function classRowHtml(row?: ClassRoom): string {
     return `<tr class="border-b border-slate-100" data-id="${escapeHtml(row?.id ?? "")}">
         <td class="p-2"><input data-field="grade" value="${escapeHtml(row?.grade ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><input data-field="room" value="${escapeHtml(row?.room ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2 text-right"><button data-remove-row type="button" class="rounded-md bg-red-50 px-2 py-1 text-red-700">ลบ</button></td>
+        ${deleteActionCellHtml()}
     </tr>`;
 }
 
@@ -236,14 +240,14 @@ function studentsPanel(): string {
             <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 class="font-semibold">Import CSV</h3>
-                    <p class="text-sm text-slate-600">ใช้สำหรับเพิ่มนักเรียนใหม่ในห้องที่เลือก คอลัมน์ที่รองรับ: ${studentCsvHeaders.join(", ")}</p>
+                    <p class="text-sm text-slate-600">ใช้สำหรับเพิ่มนักเรียนใหม่ในห้องที่เลือก คอลัมน์ที่รองรับ: ${studentCsvHeaders.join(", ")} และระบบจะตั้งสถานะเป็นกำลังศึกษาอัตโนมัติ</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button id="sampleStudentCsvButton" type="button" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">ตัวอย่าง</button>
                     <button id="importStudentCsvButton" type="button" class="rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white">นำเข้า CSV</button>
                 </div>
             </div>
-            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="number,studentCode,fullName,status"></textarea>
+            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="number,studentCode,fullName"></textarea>
         </div>
         <div class="mb-3 flex justify-end"><button id="addStudentRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
@@ -258,6 +262,81 @@ function studentsPanel(): string {
         <button id="saveStudentsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกรายชื่อนักเรียนห้องนี้</button>`,
         currentAcademicYearLabel(),
     );
+}
+
+function forceDeletePanel(): string {
+    const sortedStudents = [...state.students].sort((a, b) => {
+        const classCompare = classLabelById(a.classId).localeCompare(
+            classLabelById(b.classId),
+            "th",
+        );
+        if (classCompare !== 0) {
+            return classCompare;
+        }
+        return Number(a.number) - Number(b.number);
+    });
+    return panel(
+        "บังคับลบข้อมูล",
+        `
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <p class="font-semibold">ใช้เฉพาะกรณีต้องการลบนักเรียนออกจากระบบถาวร</p>
+            <p class="mt-1">ระบบจะลบนักเรียนที่เลือกออกจากรายชื่อ พร้อมลบประวัติการเช็คชื่อทั้งหมดของนักเรียนคนนั้นในปีการศึกษาปัจจุบัน การทำงานนี้ไม่สามารถย้อนกลับจากระบบได้</p>
+        </div>
+        ${
+            sortedStudents.length === 0
+                ? `<p class="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">ยังไม่มีรายชื่อนักเรียนในปีการศึกษานี้</p>`
+                : `
+                    <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">ค้นหานักเรียน</label>
+                            <input id="forceDeleteStudentSearch" placeholder="ค้นหาจากชื่อ รหัสนักเรียน เลขที่ หรือห้อง" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                        </div>
+                        <div class="flex items-end">
+                            <p id="forceDeleteSelectedCount" class="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">เลือกแล้ว 0 คน</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-180 text-left text-sm">
+                            <thead class="bg-slate-100"><tr><th class="p-2">เลือก</th><th class="p-2">ห้อง</th><th class="p-2">เลขที่</th><th class="p-2">รหัสนักเรียน</th><th class="p-2">ชื่อ-สกุล</th><th class="p-2">สถานะ</th></tr></thead>
+                            <tbody id="forceDeleteStudentRows">${sortedStudents.map(forceDeleteStudentRowHtml).join("")}</tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 grid gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-[1fr_auto]">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">ยืนยันการบังคับลบ</label>
+                            <input id="forceDeleteConfirmInput" placeholder="พิมพ์ ${forceDeleteConfirmText}" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                            <p class="mt-1 text-sm text-slate-600">ต้องพิมพ์คำว่า ${forceDeleteConfirmText} ให้ตรงก่อนจึงจะลบได้</p>
+                        </div>
+                        <div class="flex items-end">
+                            <button id="forceDeleteStudentsButton" type="button" disabled class="w-full rounded-md bg-red-700 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">บังคับลบนักเรียนที่เลือก</button>
+                        </div>
+                    </div>
+                `
+        }`,
+        currentAcademicYearLabel(),
+    );
+}
+
+function forceDeleteStudentRowHtml(student: Student): string {
+    const classText = classLabelById(student.classId);
+    const searchText = normalizeSearchText(
+        [
+            classText,
+            student.number,
+            student.studentCode,
+            student.fullName,
+            student.status,
+            studentStatusLabel(student.status),
+        ].join(" "),
+    );
+    return `<tr class="border-b border-slate-100" data-force-delete-row data-search="${escapeHtml(searchText)}">
+        <td class="p-2 text-center"><input type="checkbox" data-force-delete-student value="${escapeHtml(student.id)}" /></td>
+        <td class="p-2">${escapeHtml(classText)}</td>
+        <td class="p-2">${escapeHtml(student.number)}</td>
+        <td class="p-2">${escapeHtml(student.studentCode || "-")}</td>
+        <td class="p-2 font-medium text-slate-900">${escapeHtml(student.fullName)}</td>
+        <td class="p-2">${escapeHtml(studentStatusLabel(student.status))}</td>
+    </tr>`;
 }
 
 function getSelectedStudentClassId(): string {
@@ -276,8 +355,15 @@ function studentRowHtml(row?: Student): string {
         <td class="p-2"><input data-field="studentCode" value="${escapeHtml(row?.studentCode ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><input data-field="fullName" value="${escapeHtml(row?.fullName ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><select data-field="status" class="w-full rounded-md border border-slate-300 px-2 py-1"><option value="active" ${row?.status !== "leave" ? "selected" : ""}>กำลังศึกษา</option><option value="leave" ${row?.status === "leave" ? "selected" : ""}>ออก/พักเรียน</option></select></td>
-        <td class="p-2 text-right"><button data-remove-row type="button" class="rounded-md bg-red-50 px-2 py-1 text-red-700">ลบ</button></td>
+        ${deleteActionCellHtml()}
     </tr>`;
+}
+
+function deleteActionCellHtml(): string {
+    return `<td class="p-2 text-right">
+        <button data-toggle-delete-row type="button" class="rounded-md bg-red-50 px-2 py-1 text-red-700">ลบ</button>
+        <span data-delete-hint class="mt-1 hidden text-xs font-medium text-red-700">จะลบเมื่อบันทึก</span>
+    </td>`;
 }
 
 function bindSettings(): void {
@@ -292,22 +378,10 @@ function bindSettings(): void {
 function bindAcademicYears(): void {
     document.getElementById("addAcademicYearRowButton")?.addEventListener("click", () => {
         const tbody = document.getElementById("academicYearRows");
-        const shouldSelect = tbody?.querySelector("[data-current-year]") === null;
+        const shouldSelect = !hasActiveCurrentAcademicYearSelection();
         tbody?.insertAdjacentHTML("beforeend", academicYearRowHtml(undefined, shouldSelect));
     });
-    document.getElementById("academicYearRows")?.addEventListener("click", (event) => {
-        const target = event.target as HTMLElement;
-        if (!target.matches("[data-remove-academic-year-row]")) {
-            return;
-        }
-        target.closest("tr")?.remove();
-        const checked = document.querySelector<HTMLInputElement>(
-            '[name="currentAcademicYear"]:checked',
-        );
-        if (!checked) {
-            document.querySelector<HTMLInputElement>("[data-current-year]")?.click();
-        }
-    });
+    document.getElementById("academicYearRows")?.addEventListener("click", toggleDeleteRow);
     document.getElementById("saveAcademicYearsButton")?.addEventListener("click", () => {
         const button = document.getElementById("saveAcademicYearsButton") as HTMLButtonElement;
         void saveAcademicYears(button);
@@ -318,7 +392,7 @@ function bindClasses(): void {
     document.getElementById("addClassRowButton")?.addEventListener("click", () => {
         document.getElementById("classRows")?.insertAdjacentHTML("beforeend", classRowHtml());
     });
-    document.getElementById("classRows")?.addEventListener("click", removeRow);
+    document.getElementById("classRows")?.addEventListener("click", toggleDeleteRow);
     document.getElementById("saveClassesButton")?.addEventListener("click", () => {
         const button = document.getElementById("saveClassesButton") as HTMLButtonElement;
         void saveClasses(button);
@@ -349,17 +423,181 @@ function bindStudents(): void {
             }),
         );
     });
-    document.getElementById("studentRows")?.addEventListener("click", removeRow);
+    document.getElementById("studentRows")?.addEventListener("click", toggleDeleteRow);
     document.getElementById("saveStudentsButton")?.addEventListener("click", () => {
         const button = document.getElementById("saveStudentsButton") as HTMLButtonElement;
         void saveStudents(button);
     });
 }
 
-function removeRow(event: Event): void {
+function bindForceDelete(): void {
+    document.getElementById("forceDeleteStudentSearch")?.addEventListener("input", () => {
+        filterForceDeleteStudents();
+    });
+    document.getElementById("forceDeleteStudentRows")?.addEventListener("change", () => {
+        updateForceDeleteState();
+    });
+    document.getElementById("forceDeleteConfirmInput")?.addEventListener("input", () => {
+        updateForceDeleteState();
+    });
+    document.getElementById("forceDeleteStudentsButton")?.addEventListener("click", () => {
+        const button = document.getElementById("forceDeleteStudentsButton") as HTMLButtonElement;
+        void forceDeleteSelectedStudents(button);
+    });
+    updateForceDeleteState();
+}
+
+function filterForceDeleteStudents(): void {
+    const query = normalizeSearchText(
+        (document.getElementById("forceDeleteStudentSearch") as HTMLInputElement | null)?.value ?? "",
+    );
+    document.querySelectorAll<HTMLTableRowElement>("[data-force-delete-row]").forEach((row) => {
+        const searchableText = row.dataset.search ?? "";
+        row.classList.toggle("hidden", query.length > 0 && !searchableText.includes(query));
+    });
+}
+
+function updateForceDeleteState(): void {
+    const selectedCount = selectedForceDeleteStudentIds().length;
+    const confirmText =
+        (document.getElementById("forceDeleteConfirmInput") as HTMLInputElement | null)
+            ?.value.trim() ?? "";
+    const countLabel = document.getElementById("forceDeleteSelectedCount");
+    if (countLabel) {
+        countLabel.textContent = `เลือกแล้ว ${selectedCount} คน`;
+    }
+    const button = document.getElementById("forceDeleteStudentsButton") as HTMLButtonElement | null;
+    if (button) {
+        button.disabled =
+            selectedCount === 0 || confirmText !== forceDeleteConfirmText;
+    }
+}
+
+async function forceDeleteSelectedStudents(button: HTMLButtonElement): Promise<void> {
+    const studentIds = selectedForceDeleteStudentIds();
+    const confirmText =
+        (document.getElementById("forceDeleteConfirmInput") as HTMLInputElement | null)
+            ?.value.trim() ?? "";
+    if (studentIds.length === 0) {
+        showNotice("adminNotice", "กรุณาเลือกนักเรียนที่ต้องการลบ", "error");
+        return;
+    }
+    if (confirmText !== forceDeleteConfirmText) {
+        showNotice("adminNotice", `กรุณาพิมพ์ ${forceDeleteConfirmText} ให้ถูกต้อง`, "error");
+        return;
+    }
+    const confirmed = window.confirm(
+        `ยืนยันบังคับลบนักเรียน ${studentIds.length} คน พร้อมประวัติการเช็คชื่อทั้งหมดใช่หรือไม่`,
+    );
+    if (!confirmed) {
+        return;
+    }
+    setBusy(button, true, "กำลังลบ...");
+    try {
+        const result = await googleScriptRun("forceDeleteStudents", token, {
+            studentIds,
+            confirmText,
+        });
+        state = await googleScriptRun("getAdminBootstrap", token);
+        render();
+        showNotice(
+            "adminNotice",
+            `บังคับลบนักเรียน ${result.deletedStudents} คน และลบประวัติเช็คชื่อ ${result.deletedAttendanceRecords} รายการเรียบร้อย`,
+            "ok",
+        );
+    } catch (error) {
+        showNotice("adminNotice", messageText(error), "error");
+    } finally {
+        setBusy(button, false);
+        updateForceDeleteState();
+    }
+}
+
+function selectedForceDeleteStudentIds(): string[] {
+    return Array.from(
+        document.querySelectorAll<HTMLInputElement>("[data-force-delete-student]:checked"),
+    ).map((input) => input.value);
+}
+
+function toggleDeleteRow(event: Event): void {
     const target = event.target as HTMLElement;
-    if (target.matches("[data-remove-row]")) {
-        target.closest("tr")?.remove();
+    if (!target.matches("[data-toggle-delete-row]")) {
+        return;
+    }
+    const row = target.closest("tr") as HTMLTableRowElement | null;
+    if (!row) {
+        return;
+    }
+    const shouldMark = !isRowMarkedForDelete(row);
+    if (shouldMark) {
+        const currentRadio = row.querySelector<HTMLInputElement>(
+            '[name="currentAcademicYear"]',
+        );
+        if (currentRadio?.checked) {
+            currentRadio.checked = false;
+        }
+    }
+    setRowDeleteMarked(row, shouldMark);
+    if (row.closest("#academicYearRows")) {
+        ensureAcademicYearSelection(shouldMark ? undefined : row);
+    }
+}
+
+function setRowDeleteMarked(row: HTMLTableRowElement, marked: boolean): void {
+    if (marked) {
+        row.dataset.deleteMarked = "true";
+    } else {
+        delete row.dataset.deleteMarked;
+    }
+    row.classList.toggle("bg-red-50", marked);
+    row.classList.toggle("text-slate-500", marked);
+    row.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select").forEach((field) => {
+        field.disabled = marked;
+        field.classList.toggle("bg-red-50", marked);
+    });
+    const button = row.querySelector<HTMLButtonElement>("[data-toggle-delete-row]");
+    if (button) {
+        button.textContent = marked ? "ยกเลิก" : "ลบ";
+        button.classList.toggle("bg-red-50", !marked);
+        button.classList.toggle("text-red-700", !marked);
+        button.classList.toggle("bg-slate-100", marked);
+        button.classList.toggle("text-slate-700", marked);
+    }
+    row.querySelector<HTMLElement>("[data-delete-hint]")?.classList.toggle("hidden", !marked);
+}
+
+function isRowMarkedForDelete(row: HTMLTableRowElement): boolean {
+    return row.dataset.deleteMarked === "true";
+}
+
+function activeTableRows(selector: string): HTMLTableRowElement[] {
+    return Array.from(document.querySelectorAll<HTMLTableRowElement>(selector)).filter(
+        (row) => !isRowMarkedForDelete(row),
+    );
+}
+
+function hasActiveCurrentAcademicYearSelection(): boolean {
+    return activeTableRows("#academicYearRows tr").some(
+        (row) =>
+            row.querySelector<HTMLInputElement>('[name="currentAcademicYear"]')
+                ?.checked,
+    );
+}
+
+function ensureAcademicYearSelection(preferredRow?: HTMLTableRowElement): void {
+    if (hasActiveCurrentAcademicYearSelection()) {
+        return;
+    }
+    const preferredRadio = preferredRow?.querySelector<HTMLInputElement>(
+        '[name="currentAcademicYear"]',
+    );
+    const fallbackRadio =
+        preferredRadio ??
+        activeTableRows("#academicYearRows tr")[0]?.querySelector<HTMLInputElement>(
+            '[name="currentAcademicYear"]',
+        );
+    if (fallbackRadio) {
+        fallbackRadio.checked = true;
     }
 }
 
@@ -402,13 +640,11 @@ async function saveAcademicYears(button: HTMLButtonElement): Promise<void> {
 async function saveClasses(button: HTMLButtonElement): Promise<void> {
     setBusy(button, true, "กำลังบันทึก...");
     try {
-        const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("#classRows tr")).map(
-            (row) => ({
-                id: row.dataset.id ?? "",
-                grade: fieldValue(row, "grade"),
-                room: fieldValue(row, "room"),
-            }),
-        );
+        const rows = activeTableRows("#classRows tr").map((row) => ({
+            id: row.dataset.id ?? "",
+            grade: fieldValue(row, "grade"),
+            room: fieldValue(row, "room"),
+        }));
         state.classes = await googleScriptRun("saveClasses", token, rows);
         state.students = await googleScriptRun("listStudents", token);
         render();
@@ -450,7 +686,7 @@ function readAcademicYearRows(): {
     currentYearKey: string;
 } {
     const rows = Array.from(
-        document.querySelectorAll<HTMLTableRowElement>("#academicYearRows tr"),
+        activeTableRows("#academicYearRows tr"),
     );
     if (rows.length === 0) {
         throw new Error("ต้องมีปีการศึกษา/เทอมอย่างน้อย 1 รายการ");
@@ -477,24 +713,24 @@ function readAcademicYearRows(): {
 }
 
 function readStudentRowsFromTable(classId = getSelectedStudentClassId()): Student[] {
-    return Array.from(
-        document.querySelectorAll<HTMLTableRowElement>("#studentRows tr"),
-    ).map((row) => ({
-        id: row.dataset.id ?? "",
-        classId,
-        number: fieldValue(row, "number"),
-        studentCode: fieldValue(row, "studentCode"),
-        fullName: fieldValue(row, "fullName"),
-        status: fieldValue(row, "status") as StudentStatus,
-    }));
+    return activeTableRows("#studentRows tr")
+        .map((row) => ({
+            id: row.dataset.id ?? "",
+            classId,
+            number: fieldValue(row, "number"),
+            studentCode: fieldValue(row, "studentCode"),
+            fullName: fieldValue(row, "fullName"),
+            status: fieldValue(row, "status") as StudentStatus,
+        }))
+        .filter((student) => !isEmptyStudentRow(student));
 }
 
 function loadSampleStudentCsv(): void {
     const textarea = document.getElementById("studentCsvInput") as HTMLTextAreaElement;
     textarea.value = [
         [...studentCsvHeaders],
-        ["1", "10001", "เด็กชายตัวอย่าง นักเรียน", "active"],
-        ["2", "10002", "เด็กหญิงตัวอย่าง นักเรียน", "leave"],
+        ["1", "10001", "เด็กชายตัวอย่าง นักเรียน"],
+        ["2", "10002", "เด็กหญิงตัวอย่าง นักเรียน"],
     ]
         .map((row) => row.map(escapeCsvCell).join(","))
         .join("\n");
@@ -531,9 +767,7 @@ function parseStudentsCsv(csvText: string, classId: string): Student[] {
         return [];
     }
     const headerIndexes = csvHeaderIndexes(parsedRows[0]);
-    return parsedRows.slice(1).map((row, index) => {
-        const lineNumber = index + 2;
-        const status = normalizeStudentStatus(csvCell(row, headerIndexes.status), lineNumber);
+    return parsedRows.slice(1).map((row) => {
         const number = csvCell(row, headerIndexes.number);
         const studentCode = csvCell(row, headerIndexes.studentCode);
         const fullName = csvCell(row, headerIndexes.fullName);
@@ -543,7 +777,7 @@ function parseStudentsCsv(csvText: string, classId: string): Student[] {
             number,
             studentCode,
             fullName,
-            status,
+            status: "active",
         };
     });
 }
@@ -605,7 +839,7 @@ function validateStudentCsvImport(importRows: Student[], currentRows: Student[])
 
 function isEmptyStudentRow(student: Student): boolean {
     return (
-        !student.classId &&
+        !student.id &&
         !student.number &&
         !student.studentCode &&
         !student.fullName
@@ -616,19 +850,21 @@ function classNumberKey(classId: string, number: string): string {
     return `${classId}:${number}`;
 }
 
-function normalizeStudentStatus(value: string, lineNumber: number): StudentStatus {
-    const clean = value.trim();
-    if (clean === "active" || clean === "กำลังศึกษา") {
-        return "active";
-    }
-    if (clean === "leave" || clean === "ออก" || clean === "พักเรียน" || clean === "ออก/พักเรียน") {
-        return "leave";
-    }
-    throw new Error(`สถานะนักเรียนไม่ถูกต้องที่บรรทัด ${lineNumber}: ${clean}`);
-}
-
 function classLabel(classRoom: ClassRoom): string {
     return `${classRoom.grade}/${classRoom.room}`;
+}
+
+function classLabelById(classId: string): string {
+    const classRoom = state.classes.find((row) => row.id === classId);
+    return classRoom ? classLabel(classRoom) : "-";
+}
+
+function studentStatusLabel(status: StudentStatus): string {
+    return status === "leave" ? "ออก/พักเรียน" : "กำลังศึกษา";
+}
+
+function normalizeSearchText(value: string): string {
+    return value.toLocaleLowerCase("th").replace(/\s+/g, "");
 }
 
 function csvCell(row: string[], index: number): string {

@@ -7,6 +7,8 @@ import type {
     AttendanceStats,
     AttendanceStatsFilters,
     ClassRoom,
+    ForceDeleteStudentsPayload,
+    ForceDeleteStudentsResult,
     IndexBootstrap,
     LoginResult,
     PublicSystemState,
@@ -164,6 +166,14 @@ export function listStudents(adminToken: string, classId?: string): Student[] {
 export function saveStudents(adminToken: string, rows: Student[]): Student[] {
     AuthService.requireAdmin(adminToken);
     return StudentService.saveStudents(rows);
+}
+
+export function forceDeleteStudents(
+    adminToken: string,
+    payload: ForceDeleteStudentsPayload,
+): ForceDeleteStudentsResult {
+    AuthService.requireAdmin(adminToken);
+    return StudentService.forceDeleteStudents(payload);
 }
 
 export function getAttendanceClassSession(
