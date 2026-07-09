@@ -138,7 +138,7 @@ function classOptions(classes: ClassRoom[], placeholder = true): string {
     return `${placeholder ? '<option value="">เลือกห้องเรียน</option>' : ""}${classes
         .map(
             (row) =>
-                `<option value="${escapeHtml(row.id)}">ม.${escapeHtml(row.grade)}/${escapeHtml(row.room)}</option>`,
+                `<option value="${escapeHtml(row.id)}">ชั้น${escapeHtml(row.grade)}/${escapeHtml(row.room)}</option>`,
         )
         .join("")}`;
 }
@@ -164,7 +164,7 @@ async function loadOverview(): Promise<void> {
                     <tbody>${overview.classes
                         .map(
                             (row) =>
-                                `<tr class="border-b border-slate-100"><td class="p-2">ม.${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-2">${row.studentCount}</td><td class="p-2">${row.checked ? "เช็คแล้ว" : "ยังไม่เช็ค"}</td><td class="p-2">${row.summary.present}</td><td class="p-2">${row.summary.absent}</td><td class="p-2">${row.summary.late}</td><td class="p-2">${row.summary.leave}</td></tr>`,
+                                `<tr class="border-b border-slate-100"><td class="p-2">ชั้น${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-2">${row.studentCount}</td><td class="p-2">${row.checked ? "เช็คแล้ว" : "ยังไม่เช็ค"}</td><td class="p-2">${row.summary.present}</td><td class="p-2">${row.summary.absent}</td><td class="p-2">${row.summary.late}</td><td class="p-2">${row.summary.leave}</td></tr>`,
                         )
                         .join("")}</tbody>
                 </table>
@@ -325,7 +325,7 @@ function renderStats(stats: AttendanceStats): void {
         <tbody>${stats.rows
             .map(
                 (row) =>
-                    `<tr class="border-b border-slate-100"><td class="p-2">${row.classRoom ? `ม.${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}` : "-"}</td><td class="p-2">${escapeHtml(row.student.number)}</td><td class="p-2">${escapeHtml(row.student.fullName)}</td><td class="p-2">${statsCell(row.summary.present, row.total)}</td><td class="p-2">${statsCell(row.summary.absent, row.total)}</td><td class="p-2">${statsCell(row.summary.late, row.total)}</td><td class="p-2">${statsCell(row.summary.leave, row.total)}</td><td class="p-2">${row.total}</td></tr>`,
+                    `<tr class="border-b border-slate-100"><td class="p-2">${row.classRoom ? `ชั้น${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}` : "-"}</td><td class="p-2">${escapeHtml(row.student.number)}</td><td class="p-2">${escapeHtml(row.student.fullName)}</td><td class="p-2">${statsCell(row.summary.present, row.total)}</td><td class="p-2">${statsCell(row.summary.absent, row.total)}</td><td class="p-2">${statsCell(row.summary.late, row.total)}</td><td class="p-2">${statsCell(row.summary.leave, row.total)}</td><td class="p-2">${row.total}</td></tr>`,
             )
             .join("")}</tbody>
     </table></div>`;
