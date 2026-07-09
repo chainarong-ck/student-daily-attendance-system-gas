@@ -14,9 +14,17 @@ import {
 
 type AdminTab = "settings" | "years" | "classes" | "students";
 
+const studentCsvHeaders = [
+    "number",
+    "studentCode",
+    "fullName",
+    "status",
+] as const;
+
 let token = "";
 let state: AdminBootstrap;
 let activeAdminTab: AdminTab = "settings";
+let selectedStudentClassId = "";
 
 async function main(): Promise<void> {
     token = localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
@@ -172,29 +180,73 @@ function classRowHtml(row?: ClassRoom): string {
 }
 
 function studentsPanel(): string {
+    const selectedClassId = getSelectedStudentClassId();
+    const selectedClass = state.classes.find((classRoom) => classRoom.id === selectedClassId);
+    if (state.classes.length === 0) {
+        return panel(
+            "รายชื่อนักเรียน",
+            `<p class="rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">กรุณาเพิ่มห้องเรียนก่อน จึงจะเพิ่มรายชื่อนักเรียนได้</p>`,
+        );
+    }
     return panel(
         "รายชื่อนักเรียน",
         `
-        <p class="mb-3 text-sm text-slate-600">เพิ่มได้หลายแถว เลือกห้องเรียนให้ครบก่อนบันทึก เลขที่ในห้องเดียวกันห้ามซ้ำ</p>
+        <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div>
+                <label class="mb-1 block text-sm font-medium">เลือกห้องเรียนที่ต้องการจัดการ</label>
+                <select id="studentClassSelect" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                    ${state.classes
+                        .map(
+                            (classRoom) =>
+                                `<option value="${escapeHtml(classRoom.id)}" ${classRoom.id === selectedClassId ? "selected" : ""}>${escapeHtml(classLabel(classRoom))}</option>`,
+                        )
+                        .join("")}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <p class="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">กำลังจัดการห้อง ${escapeHtml(selectedClass ? classLabel(selectedClass) : "-")}</p>
+            </div>
+        </div>
+        <p class="mb-3 text-sm text-slate-600">หน้านี้จัดการนักเรียนทีละห้องเท่านั้น เพื่อลดความเสี่ยงการแก้ไขข้อมูลห้องอื่นโดยไม่ตั้งใจ</p>
+        <div class="mb-4 rounded-lg border border-slate-200 p-4">
+            <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h3 class="font-semibold">Import CSV</h3>
+                    <p class="text-sm text-slate-600">ใช้สำหรับเพิ่มนักเรียนใหม่ในห้องที่เลือก คอลัมน์ที่รองรับ: ${studentCsvHeaders.join(", ")}</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="sampleStudentCsvButton" type="button" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">ตัวอย่าง</button>
+                    <button id="importStudentCsvButton" type="button" class="rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white">นำเข้า CSV</button>
+                </div>
+            </div>
+            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="number,studentCode,fullName,status"></textarea>
+        </div>
         <div class="mb-3 flex justify-end"><button id="addStudentRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[900px] text-left text-sm">
-                <thead class="bg-slate-100"><tr><th class="p-2">ห้อง</th><th class="p-2">เลขที่</th><th class="p-2">รหัสนักเรียน</th><th class="p-2">ชื่อ-สกุล</th><th class="p-2">สถานะ</th><th class="p-2"></th></tr></thead>
-                <tbody id="studentRows">${state.students.map(studentRowHtml).join("")}</tbody>
+            <table class="w-full min-w-[720px] text-left text-sm">
+                <thead class="bg-slate-100"><tr><th class="p-2">เลขที่</th><th class="p-2">รหัสนักเรียน</th><th class="p-2">ชื่อ-สกุล</th><th class="p-2">สถานะ</th><th class="p-2"></th></tr></thead>
+                <tbody id="studentRows">${state.students
+                    .filter((student) => student.classId === selectedClassId)
+                    .map(studentRowHtml)
+                    .join("")}</tbody>
             </table>
         </div>
-        <button id="saveStudentsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกรายชื่อนักเรียน</button>`,
+        <button id="saveStudentsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกรายชื่อนักเรียนห้องนี้</button>`,
     );
+}
+
+function getSelectedStudentClassId(): string {
+    if (
+        !selectedStudentClassId ||
+        !state.classes.some((classRoom) => classRoom.id === selectedStudentClassId)
+    ) {
+        selectedStudentClassId = state.classes[0]?.id ?? "";
+    }
+    return selectedStudentClassId;
 }
 
 function studentRowHtml(row?: Student): string {
     return `<tr class="border-b border-slate-100" data-id="${escapeHtml(row?.id ?? "")}">
-        <td class="p-2"><select data-field="classId" class="w-full rounded-md border border-slate-300 px-2 py-1">${state.classes
-            .map(
-                (classRoom) =>
-                    `<option value="${escapeHtml(classRoom.id)}" ${classRoom.id === row?.classId ? "selected" : ""}>${escapeHtml(classRoom.grade)}/${escapeHtml(classRoom.room)}</option>`,
-            )
-            .join("")}</select></td>
         <td class="p-2"><input data-field="number" value="${escapeHtml(row?.number ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><input data-field="studentCode" value="${escapeHtml(row?.studentCode ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
         <td class="p-2"><input data-field="fullName" value="${escapeHtml(row?.fullName ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
@@ -237,8 +289,28 @@ function bindClasses(): void {
 }
 
 function bindStudents(): void {
+    document.getElementById("studentClassSelect")?.addEventListener("change", (event) => {
+        selectedStudentClassId = (event.target as HTMLSelectElement).value;
+        render();
+    });
+    document.getElementById("sampleStudentCsvButton")?.addEventListener("click", () => {
+        loadSampleStudentCsv();
+    });
+    document.getElementById("importStudentCsvButton")?.addEventListener("click", () => {
+        importStudentCsvToTable();
+    });
     document.getElementById("addStudentRowButton")?.addEventListener("click", () => {
-        document.getElementById("studentRows")?.insertAdjacentHTML("beforeend", studentRowHtml());
+        document.getElementById("studentRows")?.insertAdjacentHTML(
+            "beforeend",
+            studentRowHtml({
+                id: "",
+                classId: getSelectedStudentClassId(),
+                number: "",
+                studentCode: "",
+                fullName: "",
+                status: "active",
+            }),
+        );
     });
     document.getElementById("studentRows")?.addEventListener("click", removeRow);
     document.getElementById("saveStudentsButton")?.addEventListener("click", () => {
@@ -329,19 +401,14 @@ async function saveClasses(button: HTMLButtonElement): Promise<void> {
 async function saveStudents(button: HTMLButtonElement): Promise<void> {
     setBusy(button, true, "กำลังบันทึก...");
     try {
-        const rows = Array.from(
-            document.querySelectorAll<HTMLTableRowElement>("#studentRows tr"),
-        ).map((row) => ({
-            id: row.dataset.id ?? "",
-            classId: fieldValue(row, "classId"),
-            number: fieldValue(row, "number"),
-            studentCode: fieldValue(row, "studentCode"),
-            fullName: fieldValue(row, "fullName"),
-            status: fieldValue(row, "status") as StudentStatus,
-        }));
+        const selectedClassId = getSelectedStudentClassId();
+        const rows = [
+            ...state.students.filter((student) => student.classId !== selectedClassId),
+            ...readStudentRowsFromTable(selectedClassId),
+        ];
         state.students = await googleScriptRun("saveStudents", token, rows);
         render();
-        showNotice("adminNotice", "บันทึกรายชื่อนักเรียนเรียบร้อย", "ok");
+        showNotice("adminNotice", "บันทึกรายชื่อนักเรียนห้องนี้เรียบร้อย", "ok");
     } catch (error) {
         showNotice("adminNotice", messageText(error), "error");
     } finally {
@@ -354,6 +421,211 @@ function fieldValue(row: HTMLTableRowElement, field: string): string {
         `[data-field="${field}"]`,
     );
     return input?.value.trim() ?? "";
+}
+
+function readStudentRowsFromTable(classId = getSelectedStudentClassId()): Student[] {
+    return Array.from(
+        document.querySelectorAll<HTMLTableRowElement>("#studentRows tr"),
+    ).map((row) => ({
+        id: row.dataset.id ?? "",
+        classId,
+        number: fieldValue(row, "number"),
+        studentCode: fieldValue(row, "studentCode"),
+        fullName: fieldValue(row, "fullName"),
+        status: fieldValue(row, "status") as StudentStatus,
+    }));
+}
+
+function loadSampleStudentCsv(): void {
+    const textarea = document.getElementById("studentCsvInput") as HTMLTextAreaElement;
+    textarea.value = [
+        [...studentCsvHeaders],
+        ["1", "10001", "เด็กชายตัวอย่าง นักเรียน", "active"],
+        ["2", "10002", "เด็กหญิงตัวอย่าง นักเรียน", "leave"],
+    ]
+        .map((row) => row.map(escapeCsvCell).join(","))
+        .join("\n");
+    showNotice("adminNotice", "ใส่ตัวอย่าง CSV แล้ว แก้ข้อมูลแล้วกดนำเข้า CSV", "info");
+}
+
+function importStudentCsvToTable(): void {
+    try {
+        const textarea = document.getElementById("studentCsvInput") as HTMLTextAreaElement;
+        const selectedClassId = getSelectedStudentClassId();
+        const students = parseStudentsCsv(textarea.value, selectedClassId);
+        validateStudentCsvImport(students, readStudentRowsFromTable(selectedClassId));
+        const tbody = document.getElementById("studentRows");
+        if (!tbody) {
+            return;
+        }
+        tbody.insertAdjacentHTML("beforeend", students.map(studentRowHtml).join(""));
+        textarea.value = "";
+        showNotice(
+            "adminNotice",
+            `นำเข้า CSV เพิ่มในตารางแล้ว ${students.length} รายการ อย่าลืมกดบันทึกรายชื่อนักเรียน`,
+            "ok",
+        );
+    } catch (error) {
+        showNotice("adminNotice", messageText(error), "error");
+    }
+}
+
+function parseStudentsCsv(csvText: string, classId: string): Student[] {
+    const parsedRows = parseCsv(csvText).filter((row) =>
+        row.some((cell) => cell.trim().length > 0),
+    );
+    if (parsedRows.length === 0) {
+        return [];
+    }
+    const headerIndexes = csvHeaderIndexes(parsedRows[0]);
+    return parsedRows.slice(1).map((row, index) => {
+        const lineNumber = index + 2;
+        const status = normalizeStudentStatus(csvCell(row, headerIndexes.status), lineNumber);
+        const number = csvCell(row, headerIndexes.number);
+        const studentCode = csvCell(row, headerIndexes.studentCode);
+        const fullName = csvCell(row, headerIndexes.fullName);
+        return {
+            id: "",
+            classId,
+            number,
+            studentCode,
+            fullName,
+            status,
+        };
+    });
+}
+
+function csvHeaderIndexes(headerRow: string[]): Record<(typeof studentCsvHeaders)[number], number> {
+    const normalized = headerRow.map((cell) => cell.trim());
+    const indexes = Object.fromEntries(
+        studentCsvHeaders.map((header) => [header, normalized.indexOf(header)]),
+    ) as Record<(typeof studentCsvHeaders)[number], number>;
+    const missingHeaders = studentCsvHeaders.filter((header) => indexes[header] < 0);
+    if (missingHeaders.length > 0) {
+        throw new Error(`CSV ต้องมีหัวคอลัมน์: ${missingHeaders.join(", ")}`);
+    }
+    return indexes;
+}
+
+function validateStudentCsvImport(importRows: Student[], currentRows: Student[]): void {
+    const existingClassNumbers = new Set<string>();
+    const existingCodes = new Set<string>();
+    currentRows.filter((student) => !isEmptyStudentRow(student)).forEach((student) => {
+        existingClassNumbers.add(classNumberKey(student.classId, student.number));
+        if (student.studentCode) {
+            existingCodes.add(student.studentCode);
+        }
+    });
+    const importClassNumbers = new Set<string>();
+    const importCodes = new Set<string>();
+    importRows.forEach((student, index) => {
+        const lineNumber = index + 2;
+        if (!student.number) {
+            throw new Error(`ต้องระบุเลขที่นักเรียนที่บรรทัด ${lineNumber}`);
+        }
+        if (!student.fullName) {
+            throw new Error(`ต้องระบุชื่อ-สกุลที่บรรทัด ${lineNumber}`);
+        }
+        const classNumber = classNumberKey(student.classId, student.number);
+        if (existingClassNumbers.has(classNumber)) {
+            throw new Error(
+                `เลขที่ ${student.number} ในห้องนี้มีอยู่แล้ว กรุณาแก้ในตารางโดยตรง`,
+            );
+        }
+        if (importClassNumbers.has(classNumber)) {
+            throw new Error(`CSV มีเลขที่ซ้ำในห้องเดียวกันที่บรรทัด ${lineNumber}`);
+        }
+        importClassNumbers.add(classNumber);
+        if (student.studentCode) {
+            if (existingCodes.has(student.studentCode)) {
+                throw new Error(
+                    `รหัสนักเรียน ${student.studentCode} มีอยู่แล้ว กรุณาแก้ในตารางโดยตรง`,
+                );
+            }
+            if (importCodes.has(student.studentCode)) {
+                throw new Error(`CSV มีรหัสนักเรียนซ้ำที่บรรทัด ${lineNumber}`);
+            }
+            importCodes.add(student.studentCode);
+        }
+    });
+}
+
+function isEmptyStudentRow(student: Student): boolean {
+    return (
+        !student.classId &&
+        !student.number &&
+        !student.studentCode &&
+        !student.fullName
+    );
+}
+
+function classNumberKey(classId: string, number: string): string {
+    return `${classId}:${number}`;
+}
+
+function normalizeStudentStatus(value: string, lineNumber: number): StudentStatus {
+    const clean = value.trim();
+    if (clean === "active" || clean === "กำลังศึกษา") {
+        return "active";
+    }
+    if (clean === "leave" || clean === "ออก" || clean === "พักเรียน" || clean === "ออก/พักเรียน") {
+        return "leave";
+    }
+    throw new Error(`สถานะนักเรียนไม่ถูกต้องที่บรรทัด ${lineNumber}: ${clean}`);
+}
+
+function classLabel(classRoom: ClassRoom): string {
+    return `${classRoom.grade}/${classRoom.room}`;
+}
+
+function csvCell(row: string[], index: number): string {
+    return (row[index] ?? "").trim();
+}
+
+function escapeCsvCell(value: string): string {
+    if (!/[",\n\r]/.test(value)) {
+        return value;
+    }
+    return `"${value.replace(/"/g, '""')}"`;
+}
+
+function parseCsv(csvText: string): string[][] {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let cell = "";
+    let inQuotes = false;
+    for (let index = 0; index < csvText.length; index += 1) {
+        const char = csvText[index];
+        const nextChar = csvText[index + 1];
+        if (inQuotes) {
+            if (char === '"' && nextChar === '"') {
+                cell += '"';
+                index += 1;
+            } else if (char === '"') {
+                inQuotes = false;
+            } else {
+                cell += char;
+            }
+        } else if (char === '"') {
+            inQuotes = true;
+        } else if (char === ",") {
+            row.push(cell);
+            cell = "";
+        } else if (char === "\n") {
+            row.push(cell);
+            rows.push(row);
+            row = [];
+            cell = "";
+        } else if (char !== "\r") {
+            cell += char;
+        }
+    }
+    if (inQuotes) {
+        throw new Error("CSV มีเครื่องหมาย quote ไม่ครบคู่");
+    }
+    row.push(cell);
+    rows.push(row);
+    return rows;
 }
 
 void main().catch((error) => {
