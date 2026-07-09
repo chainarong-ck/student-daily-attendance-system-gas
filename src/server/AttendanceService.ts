@@ -73,6 +73,18 @@ export class AttendanceService {
     }
 
     static getStats(filters: AttendanceStatsFilters): AttendanceStats {
+        if (filters.dateFrom) {
+            ServerUtils.assertDateText(filters.dateFrom);
+        }
+        if (filters.dateTo) {
+            ServerUtils.assertDateText(filters.dateTo);
+        }
+        if (filters.dateFrom && filters.dateTo) {
+            ServerUtils.assert(
+                filters.dateFrom <= filters.dateTo,
+                "ช่วงวันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด",
+            );
+        }
         const classMap = new Map(ClassService.listClasses().map((row) => [row.id, row]));
         const students = StudentService.listStudents(filters.classId);
         const records = this.listRecords().filter((record) => {

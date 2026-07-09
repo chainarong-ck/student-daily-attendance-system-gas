@@ -2,29 +2,33 @@ import { googleScriptRun } from "../../shared/gas-client";
 import type { AdminBootstrap, ClassRoom, Student, StudentStatus } from "../../shared/types";
 import {
     ADMIN_TOKEN_KEY,
+    bindShellActions,
     escapeHtml,
     messageText,
-    navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
+    showLoginRequired,
     showNotice,
 } from "./client-utils";
 
+type AdminTab = "settings" | "years" | "classes" | "students";
+
 let token = "";
 let state: AdminBootstrap;
+let activeAdminTab: AdminTab = "settings";
 
 async function main(): Promise<void> {
     token = localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
     if (!token) {
-        navigateTo("Login", { role: "admin" });
+        showLoginRequired("admin", "กรุณา Login ด้วยรหัส Admin ก่อนเข้าใช้งานหน้าผู้ดูแลระบบ");
         return;
     }
     try {
         state = await googleScriptRun("getAdminBootstrap", token);
-    } catch {
+    } catch (error) {
         localStorage.removeItem(ADMIN_TOKEN_KEY);
-        navigateTo("Login", { role: "admin" });
+        showLoginRequired("admin", messageText(error));
         return;
     }
     render();
@@ -35,17 +39,58 @@ function render(): void {
         "Admin",
         `
         ${noticeHtml("adminNotice")}
+        <div class="mb-4 flex flex-wrap gap-2">
+            ${adminTabButton("settings", "ตั้งค่าระบบ")}
+            ${adminTabButton("years", "ปีการศึกษา")}
+            ${adminTabButton("classes", "ห้องเรียน")}
+            ${adminTabButton("students", "รายชื่อนักเรียน")}
+        </div>
         <div class="grid gap-5">
-            ${settingsPanel()}
-            ${academicYearPanel()}
-            ${classesPanel()}
-            ${studentsPanel()}
+            <div id="settingsAdminPanel" class="${activeAdminTab === "settings" ? "" : "hidden"}">${settingsPanel()}</div>
+            <div id="yearsAdminPanel" class="${activeAdminTab === "years" ? "" : "hidden"}">${academicYearPanel()}</div>
+            <div id="classesAdminPanel" class="${activeAdminTab === "classes" ? "" : "hidden"}">${classesPanel()}</div>
+            <div id="studentsAdminPanel" class="${activeAdminTab === "students" ? "" : "hidden"}">${studentsPanel()}</div>
         </div>`,
+        {
+            activePage: "Admin",
+            logoutRole: "admin",
+            showLoginLink: false,
+        },
     );
+    bindShellActions();
+    bindAdminTabs();
     bindSettings();
     bindAcademicYears();
     bindClasses();
     bindStudents();
+}
+
+function adminTabButton(tab: AdminTab, label: string): string {
+    return `<button type="button" data-admin-tab="${tab}" class="rounded-md px-4 py-2 text-sm font-semibold ${activeAdminTab === tab ? "bg-orange-600 text-white" : "bg-white text-slate-700"}">${label}</button>`;
+}
+
+function bindAdminTabs(): void {
+    document.querySelectorAll<HTMLButtonElement>("[data-admin-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+            activeAdminTab = (button.dataset.adminTab ?? "settings") as AdminTab;
+            activateAdminTab();
+        });
+    });
+}
+
+function activateAdminTab(): void {
+    (["settings", "years", "classes", "students"] as AdminTab[]).forEach((tab) => {
+        document
+            .getElementById(`${tab}AdminPanel`)
+            ?.classList.toggle("hidden", activeAdminTab !== tab);
+        const button = document.querySelector<HTMLButtonElement>(
+            `[data-admin-tab="${tab}"]`,
+        );
+        button?.classList.toggle("bg-orange-600", activeAdminTab === tab);
+        button?.classList.toggle("text-white", activeAdminTab === tab);
+        button?.classList.toggle("bg-white", activeAdminTab !== tab);
+        button?.classList.toggle("text-slate-700", activeAdminTab !== tab);
+    });
 }
 
 function panel(title: string, content: string): string {
@@ -147,7 +192,7 @@ function studentRowHtml(row?: Student): string {
         <td class="p-2"><select data-field="classId" class="w-full rounded-md border border-slate-300 px-2 py-1">${state.classes
             .map(
                 (classRoom) =>
-                    `<option value="${escapeHtml(classRoom.id)}" ${classRoom.id === row?.classId ? "selected" : ""}>ม.${escapeHtml(classRoom.grade)}/${escapeHtml(classRoom.room)}</option>`,
+                    `<option value="${escapeHtml(classRoom.id)}" ${classRoom.id === row?.classId ? "selected" : ""}>${escapeHtml(classRoom.grade)}/${escapeHtml(classRoom.room)}</option>`,
             )
             .join("")}</select></td>
         <td class="p-2"><input data-field="number" value="${escapeHtml(row?.number ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>

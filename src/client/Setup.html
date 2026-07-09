@@ -3,7 +3,8 @@
     <head>
         <base target="_top" />
         <meta charset="UTF-8" />
-        <title><?!= PageTitle ?></title> <!-- ตั้งค่าระบบ - ระบบเช็คชื่อนักเรียนรายวัน -->
+        <title><?!= PageTitle ?></title>
+        <!-- ตั้งค่าระบบ - ระบบเช็คชื่อนักเรียนรายวัน -->
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="stylesheet" href="./style/Global.css" />
     </head>
@@ -11,6 +12,9 @@
         <!-- เนื้อหาในหน้าเว็บ -->
         <script>
             window.__WEB_APP_URL__ = "<?!= WebAppUrl ?>";
+            window.__APP_CONTEXT__ = JSON.parse(
+                decodeURIComponent("<?!= AppContextJsonEncoded ?>"),
+            );
         </script>
         <script type="module" src="./script/Setup.ts"></script>
     </body>

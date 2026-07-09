@@ -8,12 +8,13 @@ import type {
 } from "../../shared/types";
 import {
     APP_TOKEN_KEY,
+    bindShellActions,
     escapeHtml,
     messageText,
-    navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
+    showLoginRequired,
     showNotice,
     todayText,
 } from "./client-utils";
@@ -32,14 +33,14 @@ let currentSession: AttendanceClassSession | null = null;
 async function main(): Promise<void> {
     token = localStorage.getItem(APP_TOKEN_KEY) ?? "";
     if (!token) {
-        navigateTo("Login");
+        showLoginRequired("app", "กรุณา Login ด้วยรหัสครูก่อนเข้าใช้งานหน้าเช็คชื่อ");
         return;
     }
     try {
         bootstrap = await googleScriptRun("getIndexBootstrap", token);
-    } catch {
+    } catch (error) {
         localStorage.removeItem(APP_TOKEN_KEY);
-        navigateTo("Login");
+        showLoginRequired("app", messageText(error));
         return;
     }
     render();
@@ -86,7 +87,13 @@ function render(): void {
             </div>
             <div id="statsContent" class="text-sm text-slate-600">เลือกช่วงวันที่แล้วกดดูสถิติ</div>
         </section>`,
+        {
+            activePage: "Index",
+            logoutRole: "app",
+            showLoginLink: false,
+        },
     );
+    bindShellActions();
 
     document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
         button.addEventListener("click", () => activateTab(button.dataset.tab ?? "overview"));

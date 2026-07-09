@@ -3,23 +3,24 @@ import type { AuthRole } from "../../shared/types";
 import {
     ADMIN_TOKEN_KEY,
     APP_TOKEN_KEY,
+    bindShellActions,
+    initialRole,
     messageText,
     navigateTo,
     noticeHtml,
     setBusy,
     shellHtml,
     showNotice,
-    webAppUrl,
 } from "./client-utils";
 
-function currentRole(): AuthRole {
-    return new URLSearchParams(window.location.search).get("role") === "admin"
-        ? "admin"
-        : "app";
-}
+let selectedRole: AuthRole = initialRole();
 
 async function main(): Promise<void> {
-    const role = currentRole();
+    renderLogin();
+}
+
+function renderLogin(): void {
+    const role = selectedRole;
     const title = role === "admin" ? "เข้าสู่ระบบ Admin" : "เข้าสู่ระบบครู";
     document.body.innerHTML = shellHtml(
         title,
@@ -27,8 +28,8 @@ async function main(): Promise<void> {
         <div class="mx-auto max-w-md rounded-lg bg-white p-6 shadow-sm">
             ${noticeHtml("loginNotice")}
             <div class="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 text-sm font-medium">
-                <a class="rounded-md px-3 py-2 text-center ${role === "app" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600"}" href="${webAppUrl("Login")}">ครู</a>
-                <a class="rounded-md px-3 py-2 text-center ${role === "admin" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600"}" href="${webAppUrl("Login")}&role=admin">Admin</a>
+                <button type="button" data-login-role="app" class="rounded-md px-3 py-2 text-center ${role === "app" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600"}">ครู</button>
+                <button type="button" data-login-role="admin" class="rounded-md px-3 py-2 text-center ${role === "admin" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600"}">Admin</button>
             </div>
             <form id="loginForm" class="grid gap-4">
                 <div>
@@ -38,8 +39,19 @@ async function main(): Promise<void> {
                 <button id="loginButton" type="submit" class="rounded-md bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60">เข้าสู่ระบบ</button>
             </form>
         </div>`,
+        {
+            activePage: "Login",
+            showLoginLink: false,
+        },
     );
+    bindShellActions();
 
+    document.querySelectorAll<HTMLButtonElement>("[data-login-role]").forEach((button) => {
+        button.addEventListener("click", () => {
+            selectedRole = button.dataset.loginRole === "admin" ? "admin" : "app";
+            renderLogin();
+        });
+    });
     const form = document.getElementById("loginForm") as HTMLFormElement;
     const button = document.getElementById("loginButton") as HTMLButtonElement;
     form.addEventListener("submit", (event) => {

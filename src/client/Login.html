@@ -11,6 +11,9 @@
         <!-- เนื้อหาในหน้าเว็บ -->
         <script>
             window.__WEB_APP_URL__ = "<?!= WebAppUrl ?>";
+            window.__APP_CONTEXT__ = JSON.parse(
+                decodeURIComponent("<?!= AppContextJsonEncoded ?>"),
+            );
         </script>
         <script type="module" src="./script/Login.ts"></script>
     </body>

@@ -68,7 +68,7 @@ export class MainConfig {
                 }),
                 [ServerConstant.PROPERTY_KEYS.initialized]: "true",
             },
-            true,
+            false,
         );
     }
 
@@ -138,10 +138,14 @@ export class MainConfig {
     }
 
     static normalizeAcademicYear(input: AcademicYear): AcademicYear {
+        const year = ServerUtils.toNumber(input.y, "ปีการศึกษา");
+        const term = ServerUtils.toNumber(input.t, "เทอม");
+        ServerUtils.assert(year > 0, "ปีการศึกษาต้องมากกว่า 0");
+        ServerUtils.assert(term > 0, "เทอมต้องมากกว่า 0");
         return {
             id: ServerUtils.extractSpreadsheetId(input.id),
-            y: ServerUtils.toNumber(input.y, "ปีการศึกษา"),
-            t: ServerUtils.toNumber(input.t, "เทอม"),
+            y: year,
+            t: term,
         };
     }
 

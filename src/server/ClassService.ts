@@ -16,6 +16,7 @@ export class ClassService {
     }
 
     static saveClasses(rows: ClassRoom[]): ClassRoom[] {
+        const database = AcademicYearService.ensureCurrentSheet();
         const normalized = rows
             .map((row) => ({
                 id: ServerUtils.normalizeText(row.id) || ServerUtils.createShortId("c"),
@@ -38,7 +39,15 @@ export class ClassService {
             ServerUtils.assert(!keys.has(key), "ระดับชั้นและเลขห้องห้ามซ้ำ");
             keys.add(key);
         }
-        AcademicYearService.ensureCurrentSheet().writeObjects("Classes", normalized);
+        const newClassIds = new Set(normalized.map((row) => row.id));
+        const blockedStudent = database
+            .readObjects("Students")
+            .find((row) => row.classId && !newClassIds.has(row.classId));
+        ServerUtils.assert(
+            !blockedStudent,
+            "ไม่สามารถลบห้องเรียนที่ยังมีนักเรียนอยู่ได้ กรุณาย้ายนักเรียนหรือลบนักเรียนก่อน",
+        );
+        database.writeObjects("Classes", normalized);
         return this.listClasses();
     }
 }

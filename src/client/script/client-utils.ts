@@ -1,14 +1,34 @@
+import type { AppPages, AuthRole } from "../../shared/types";
+
 export const APP_TOKEN_KEY = "student_attendance_app_token";
 export const ADMIN_TOKEN_KEY = "student_attendance_admin_token";
 
+type AppContext = {
+    page: AppPages;
+    role: AuthRole;
+    webAppUrl: string;
+};
+
+type ShellOptions = {
+    activePage: AppPages;
+    logoutRole?: AuthRole;
+    showAdminLink?: boolean;
+    showIndexLink?: boolean;
+    showLoginLink?: boolean;
+};
+
 declare global {
     interface Window {
+        __APP_CONTEXT__?: AppContext;
         __WEB_APP_URL__?: string;
     }
 }
 
 export function webAppUrl(page?: string): string {
-    const base = window.__WEB_APP_URL__ || window.location.href.split("?")[0];
+    const base =
+        window.__APP_CONTEXT__?.webAppUrl ||
+        window.__WEB_APP_URL__ ||
+        window.location.href.split("?")[0];
     return page ? `${base}?page=${encodeURIComponent(page)}` : base;
 }
 
@@ -18,6 +38,58 @@ export function navigateTo(page: string, params?: Record<string, string>): void 
         url.searchParams.set(key, value);
     });
     window.open(url.toString(), "_top");
+}
+
+export function initialRole(): AuthRole {
+    return window.__APP_CONTEXT__?.role ?? "app";
+}
+
+export function showLoginRequired(role: AuthRole, message?: string): void {
+    const loginParams = role === "admin" ? { role: "admin" } : undefined;
+    document.body.innerHTML = shellHtml(
+        "ยังไม่ได้เข้าสู่ระบบ",
+        `
+        <section class="mx-auto max-w-xl rounded-lg bg-white p-6 text-center shadow-sm">
+            <h2 class="text-xl font-semibold text-slate-900">กรุณาเข้าสู่ระบบก่อนใช้งาน</h2>
+            <p class="mt-2 text-sm text-slate-600">${escapeHtml(message ?? "หน้านี้ต้องเข้าสู่ระบบก่อน")}</p>
+            <p class="mt-2 text-sm text-slate-500">ระบบกำลังพาไปหน้า Login หากไม่เปลี่ยนหน้าให้กดปุ่มด้านล่าง</p>
+            <button id="goLoginButton" type="button" class="mt-5 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700">ไปหน้า Login</button>
+        </section>`,
+        {
+            activePage: "Login",
+            showAdminLink: false,
+            showIndexLink: false,
+            showLoginLink: false,
+        },
+    );
+    bindShellActions();
+    document.getElementById("goLoginButton")?.addEventListener("click", () => {
+        navigateTo("Login", loginParams);
+    });
+    window.setTimeout(() => {
+        navigateTo("Login", loginParams);
+    }, 800);
+}
+
+export function bindShellActions(): void {
+    document.querySelectorAll<HTMLButtonElement>("[data-nav-page]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const page = button.dataset.navPage;
+            if (page) {
+                navigateTo(page);
+            }
+        });
+    });
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-logout-role]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                const role = button.dataset.logoutRole === "admin" ? "admin" : "app";
+                localStorage.removeItem(APP_TOKEN_KEY);
+                localStorage.removeItem(ADMIN_TOKEN_KEY);
+                navigateTo("Login", role === "admin" ? { role: "admin" } : undefined);
+            });
+        });
 }
 
 export function todayText(): string {
@@ -59,7 +131,7 @@ export function footerHtml(): string {
     return `<footer class="mt-10 border-t border-slate-200 py-5 text-center text-sm text-slate-500">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย Chainarong CK</footer>`;
 }
 
-export function shellHtml(title: string, body: string): string {
+export function shellHtml(title: string, body: string, options: ShellOptions): string {
     return `
         <main class="min-h-screen bg-slate-100 text-slate-900">
             <section class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -69,15 +141,37 @@ export function shellHtml(title: string, body: string): string {
                         <h1 class="text-2xl font-bold">${escapeHtml(title)}</h1>
                     </div>
                     <nav class="flex flex-wrap gap-2 text-sm">
-                        <a class="rounded-md bg-slate-100 px-3 py-2 font-medium hover:bg-slate-200" href="${webAppUrl("Index")}">หน้าเช็คชื่อ</a>
-                        <a class="rounded-md bg-slate-100 px-3 py-2 font-medium hover:bg-slate-200" href="${webAppUrl("Admin")}">Admin</a>
-                        <a class="rounded-md bg-orange-600 px-3 py-2 font-medium text-white hover:bg-orange-700" href="${webAppUrl("Login")}">Login</a>
+                        ${navButton("Index", "หน้าเช็คชื่อ", options)}
+                        ${navButton("Admin", "Admin", options)}
+                        ${navButton("Login", "Login", options)}
+                        ${logoutButton(options)}
                     </nav>
                 </header>
                 ${body}
                 ${footerHtml()}
             </section>
         </main>`;
+}
+
+function navButton(page: AppPages, label: string, options: ShellOptions): string {
+    if (page === "Index" && options.showIndexLink === false) {
+        return "";
+    }
+    if (page === "Admin" && options.showAdminLink === false) {
+        return "";
+    }
+    if (page === "Login" && options.showLoginLink === false) {
+        return "";
+    }
+    const active = options.activePage === page;
+    return `<button type="button" data-nav-page="${page}" class="rounded-md px-3 py-2 font-medium ${active ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">${label}</button>`;
+}
+
+function logoutButton(options: ShellOptions): string {
+    if (!options.logoutRole) {
+        return "";
+    }
+    return `<button type="button" data-logout-role="${options.logoutRole}" class="rounded-md bg-slate-800 px-3 py-2 font-medium text-white hover:bg-slate-900">ออกจากระบบ</button>`;
 }
 
 export function noticeHtml(id: string): string {

@@ -43,6 +43,7 @@ export function doGet(
     const template = HtmlService.createTemplateFromFile(
         page,
     ) as GoogleAppsScript.HTML.HtmlTemplate & {
+        AppContextJsonEncoded: string;
         WebAppUrl: string;
         PageTitle: string;
     };
@@ -50,6 +51,13 @@ export function doGet(
     template.PageTitle =
         ServerConstant.APP_PAGES_TITLE[page] ??
         ServerConstant.APP_PAGES_TITLE.Index;
+    template.AppContextJsonEncoded = encodeURIComponent(
+        JSON.stringify({
+            page,
+            role: event?.parameter?.role === "admin" ? "admin" : "app",
+            webAppUrl: ServerUtils.getWebAppUrl(),
+        }),
+    );
     return template
         .evaluate()
         .setTitle("ระบบเช็คชื่อนักเรียน")

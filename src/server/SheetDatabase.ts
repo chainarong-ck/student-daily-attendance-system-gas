@@ -41,6 +41,7 @@ export class SheetDatabase {
     writeObjects(sheetName: SheetName, rows: Record<string, string>[]): void {
         const sheet = this.ensureSheet(sheetName);
         const headers = [...ServerConstant.HEADERS[sheetName]];
+        this.ensureRowCapacity(sheet, Math.max(rows.length + 1, 2));
         const maxRows = Math.max(sheet.getMaxRows() - 1, 1);
         sheet.getRange(2, 1, maxRows, headers.length).clearContent();
         if (rows.length === 0) {
@@ -63,6 +64,7 @@ export class SheetDatabase {
         const values = rows.map((row) =>
             headers.map((header) => ServerUtils.normalizeText(row[header])),
         );
+        this.ensureRowCapacity(sheet, sheet.getLastRow() + values.length);
         sheet
             .getRange(sheet.getLastRow() + 1, 1, values.length, headers.length)
             .setValues(values);
@@ -75,6 +77,7 @@ export class SheetDatabase {
         if (!sheet) {
             sheet = this.spreadsheet.insertSheet(sheetName);
         }
+        this.ensureRowCapacity(sheet, 2);
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
         sheet.setFrozenRows(1);
         this.formatSheet(sheet, headers.length);
@@ -88,5 +91,15 @@ export class SheetDatabase {
         const rows = Math.max(sheet.getMaxRows(), 1);
         sheet.getRange(1, 1, rows, columns).setNumberFormat("@");
         sheet.autoResizeColumns(1, columns);
+    }
+
+    private ensureRowCapacity(
+        sheet: GoogleAppsScript.Spreadsheet.Sheet,
+        requiredRows: number,
+    ): void {
+        const missingRows = requiredRows - sheet.getMaxRows();
+        if (missingRows > 0) {
+            sheet.insertRowsAfter(sheet.getMaxRows(), missingRows);
+        }
     }
 }

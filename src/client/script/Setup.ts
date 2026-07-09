@@ -1,5 +1,6 @@
 import { googleScriptRun } from "../../shared/gas-client";
 import {
+    bindShellActions,
     messageText,
     navigateTo,
     noticeHtml,
@@ -50,7 +51,14 @@ async function main(): Promise<void> {
                 <button id="submitButton" type="submit" class="rounded-md bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60">บันทึกและเริ่มใช้งาน</button>
             </form>
         </div>`,
+        {
+            activePage: "Setup",
+            showAdminLink: false,
+            showIndexLink: false,
+            showLoginLink: false,
+        },
     );
+    bindShellActions();
 
     const state = await googleScriptRun("getPublicSystemState");
     if (state.initialized) {

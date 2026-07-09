@@ -26,7 +26,18 @@ export class StudentService {
     }
 
     static saveStudents(rows: Student[]): Student[] {
+        const database = AcademicYearService.ensureCurrentSheet();
         const classIds = new Set(ClassService.listClasses().map((row) => row.id));
+        const existingStudents = database.readObjects("Students");
+        const existingClassByStudent = new Map(
+            existingStudents.map((row) => [row.id, row.classId]),
+        );
+        const attendanceStudentIds = new Set(
+            database
+                .readObjects("Attendance")
+                .map((row) => row.studentId)
+                .filter((studentId) => studentId.length > 0),
+        );
         const normalized = rows
             .map((row) => {
                 const status: StudentStatus =
@@ -73,8 +84,25 @@ export class StudentService {
                 ServerUtils.assert(!codes.has(row.studentCode), "รหัสนักเรียนห้ามซ้ำ");
                 codes.add(row.studentCode);
             }
+            const existingClassId = existingClassByStudent.get(row.id);
+            ServerUtils.assert(
+                !(
+                    existingClassId &&
+                    existingClassId !== row.classId &&
+                    attendanceStudentIds.has(row.id)
+                ),
+                "ไม่สามารถย้ายห้องนักเรียนที่มีประวัติเช็คชื่อแล้วได้",
+            );
         }
-        AcademicYearService.ensureCurrentSheet().writeObjects("Students", normalized);
+        const newStudentIds = new Set(normalized.map((row) => row.id));
+        const deletedAttendanceStudentId = [...attendanceStudentIds].find(
+            (studentId) => !newStudentIds.has(studentId),
+        );
+        ServerUtils.assert(
+            !deletedAttendanceStudentId,
+            "ไม่สามารถลบนักเรียนที่มีประวัติเช็คชื่อแล้วได้ กรุณาเปลี่ยนสถานะเป็นออก/พักเรียนแทน",
+        );
+        database.writeObjects("Students", normalized);
         return this.listStudents();
     }
 }

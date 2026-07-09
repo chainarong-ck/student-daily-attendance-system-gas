@@ -48,12 +48,26 @@ export class AuthService {
         const [payload, signature] = token.split(".");
         ServerUtils.assert(Boolean(payload && signature), "กรุณาเข้าสู่ระบบใหม่");
         ServerUtils.assert(signature === this.sign(payload), "กรุณาเข้าสู่ระบบใหม่");
-        const decoded = Utilities.newBlob(
-            Utilities.base64DecodeWebSafe(payload),
-        ).getDataAsString();
-        const data = JSON.parse(decoded) as TokenPayload;
-        ServerUtils.assert(data.role === expectedRole, "สิทธิ์การใช้งานไม่ถูกต้อง");
-        ServerUtils.assert(Date.now() <= data.exp, "Session หมดอายุ กรุณาเข้าสู่ระบบใหม่");
+        try {
+            const decoded = Utilities.newBlob(
+                Utilities.base64DecodeWebSafe(this.withBase64Padding(payload)),
+            ).getDataAsString();
+            const data = JSON.parse(decoded) as TokenPayload;
+            ServerUtils.assert(data.role === expectedRole, "สิทธิ์การใช้งานไม่ถูกต้อง");
+            ServerUtils.assert(
+                Date.now() <= data.exp,
+                "Session หมดอายุ กรุณาเข้าสู่ระบบใหม่",
+            );
+        } catch (error) {
+            if (
+                error instanceof Error &&
+                (error.message.includes("Session") ||
+                    error.message.includes("สิทธิ์"))
+            ) {
+                throw error;
+            }
+            throw new Error("กรุณาเข้าสู่ระบบใหม่");
+        }
     }
 
     private static sign(payload: string): string {
@@ -62,5 +76,10 @@ export class AuthService {
                 "admin",
             )}`,
         );
+    }
+
+    private static withBase64Padding(value: string): string {
+        const remainder = value.length % 4;
+        return remainder === 0 ? value : `${value}${"=".repeat(4 - remainder)}`;
     }
 }
