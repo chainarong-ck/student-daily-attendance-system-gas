@@ -2,6 +2,7 @@ import type {
     ForceDeleteStudentsPayload,
     ForceDeleteStudentsResult,
     Student,
+    StudentGender,
     StudentStatus,
 } from "../shared/types";
 import { AcademicYearService } from "./AcademicYearService";
@@ -17,6 +18,7 @@ export class StudentService {
             .map((row) => {
                 const status: StudentStatus =
                     row.status === "leave" ? "leave" : "active";
+                const gender = ServerUtils.normalizeStudentGender(row.gender);
                 return {
                     id: row.id,
                     classId: row.classId,
@@ -24,6 +26,7 @@ export class StudentService {
                     studentCode: row.studentCode,
                     fullName: row.fullName,
                     status,
+                    gender,
                 };
             })
             .filter((student) => !filterClassId || student.classId === filterClassId)
@@ -47,6 +50,9 @@ export class StudentService {
             .map((row) => {
                 const status: StudentStatus =
                     row.status === "leave" ? "leave" : "active";
+                const gender: StudentGender = ServerUtils.normalizeStudentGender(
+                    row.gender,
+                );
                 return {
                     id:
                         ServerUtils.normalizeText(row.id) ||
@@ -56,6 +62,7 @@ export class StudentService {
                     studentCode: ServerUtils.normalizeText(row.studentCode),
                     fullName: ServerUtils.normalizeText(row.fullName),
                     status,
+                    gender,
                 };
             })
             .filter(
@@ -81,6 +88,10 @@ export class StudentService {
             ServerUtils.assert(
                 ServerConstant.STUDENT_STATUSES.includes(row.status),
                 "สถานะนักเรียนไม่ถูกต้อง",
+            );
+            ServerUtils.assert(
+                ServerConstant.STUDENT_GENDERS.includes(row.gender),
+                "เพศนักเรียนไม่ถูกต้อง",
             );
             const numberKey = `${row.classId}:${row.number}`;
             ServerUtils.assert(!numbers.has(numberKey), "เลขที่นักเรียนในห้องเดียวกันห้ามซ้ำ");

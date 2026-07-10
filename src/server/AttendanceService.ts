@@ -5,6 +5,8 @@ import type {
     AttendanceStats,
     AttendanceStatsFilters,
     AttendanceSummary,
+    GenderCounts,
+    StudentGender,
     SaveAttendancePayload,
     SaveAttendanceResult,
 } from "../shared/types";
@@ -50,47 +52,78 @@ export class AttendanceService {
         ServerUtils.assertDateText(date);
         const classes = ClassService.listClasses();
         const records = this.listRecords().filter((record) => record.date === date);
-        const activeStudents = StudentService.listStudents().filter(
+        const allStudents = StudentService.listStudents();
+        const studentById = new Map(allStudents.map((student) => [student.id, student]));
+        const activeStudents = allStudents.filter(
             (student) => student.status === "active",
         );
         const activeStudentIds = new Set(activeStudents.map((student) => student.id));
         const studentCountByClass = new Map<string, number>();
+        const studentCountByGender = ServerUtils.emptyGenderCounts();
+        const studentCountByClassGender = new Map<string, GenderCounts>();
         activeStudents.forEach((student) => {
             studentCountByClass.set(
                 student.classId,
                 (studentCountByClass.get(student.classId) ?? 0) + 1,
             );
+            studentCountByGender[student.gender] += 1;
+            const classGenderCounts =
+                studentCountByClassGender.get(student.classId) ??
+                ServerUtils.emptyGenderCounts();
+            classGenderCounts[student.gender] += 1;
+            studentCountByClassGender.set(student.classId, classGenderCounts);
         });
         const checkedStudentIds = new Set(
             records
                 .filter((record) => activeStudentIds.has(record.studentId))
                 .map((record) => record.studentId),
         );
+        const checkedByGender = ServerUtils.emptyGenderCounts();
+        const uncheckedByGender = ServerUtils.emptyGenderCounts();
+        activeStudents.forEach((student) => {
+            const target = checkedStudentIds.has(student.id)
+                ? checkedByGender
+                : uncheckedByGender;
+            target[student.gender] += 1;
+        });
         const total = ServerUtils.emptySummary();
+        const totalByGender = ServerUtils.emptyGenderAttendanceSummary();
         return {
             date,
             studentCounts: {
                 total: activeStudents.length,
                 checked: checkedStudentIds.size,
                 unchecked: Math.max(activeStudents.length - checkedStudentIds.size, 0),
+                byGender: studentCountByGender,
+                checkedByGender,
+                uncheckedByGender,
             },
             classes: classes.map((classRoom) => {
                 const summary = ServerUtils.emptySummary();
+                const summaryByGender = ServerUtils.emptyGenderAttendanceSummary();
                 const classRecords = records.filter(
                     (record) => record.classId === classRoom.id,
                 );
                 classRecords.forEach((record) => {
+                    const gender = studentById.get(record.studentId)?.gender ?? "unknown";
                     summary[record.status] += 1;
                     total[record.status] += 1;
+                    summaryByGender[gender][record.status] += 1;
+                    totalByGender[gender][record.status] += 1;
                 });
                 return {
                     classRoom,
                     studentCount: studentCountByClass.get(classRoom.id) ?? 0,
+                    studentCountByGender:
+                        studentCountByClassGender.get(classRoom.id) ??
+                        ServerUtils.emptyGenderCounts(),
                     checked: classRecords.length > 0,
                     summary,
+                    summaryByGender,
                 };
             }),
             total,
+            totalByGender,
         };
     }
 
@@ -108,7 +141,13 @@ export class AttendanceService {
             );
         }
         const classMap = new Map(ClassService.listClasses().map((row) => [row.id, row]));
-        const students = StudentService.listStudents(filters.classId);
+        const filterGenderText = ServerUtils.normalizeText(filters.gender);
+        const genderFilter: StudentGender | "" = filterGenderText
+            ? ServerUtils.normalizeStudentGender(filterGenderText)
+            : "";
+        const students = StudentService.listStudents(filters.classId).filter(
+            (student) => !genderFilter || student.gender === genderFilter,
+        );
         const records = this.listRecords().filter((record) => {
             if (filters.classId && record.classId !== filters.classId) {
                 return false;

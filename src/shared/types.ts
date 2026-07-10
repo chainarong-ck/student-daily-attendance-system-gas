@@ -8,6 +8,8 @@ export type AuthRole = "app" | "admin";
 
 export type StudentStatus = "active" | "leave";
 
+export type StudentGender = "male" | "female" | "unknown";
+
 export type AttendanceStatus = "present" | "absent" | "late" | "leave";
 
 export type AcademicYear = {
@@ -46,6 +48,7 @@ export type Student = {
     studentCode: string;
     fullName: string;
     status: StudentStatus;
+    gender: StudentGender;
 };
 
 export type AttendanceRecord = {
@@ -70,26 +73,37 @@ export type AttendanceClassSession = {
 
 export type AttendanceSummary = Record<AttendanceStatus, number>;
 
+export type GenderCounts = Record<StudentGender, number>;
+
+export type GenderAttendanceSummary = Record<StudentGender, AttendanceSummary>;
+
 export type AttendanceOverview = {
     date: string;
     studentCounts: {
         total: number;
         checked: number;
         unchecked: number;
+        byGender: GenderCounts;
+        checkedByGender: GenderCounts;
+        uncheckedByGender: GenderCounts;
     };
     classes: Array<{
         classRoom: ClassRoom;
         studentCount: number;
+        studentCountByGender: GenderCounts;
         checked: boolean;
         summary: AttendanceSummary;
+        summaryByGender: GenderAttendanceSummary;
     }>;
     total: AttendanceSummary;
+    totalByGender: GenderAttendanceSummary;
 };
 
 export type AttendanceStatsFilters = {
     dateFrom?: string;
     dateTo?: string;
     classId?: string;
+    gender?: StudentGender | "";
 };
 
 export type StudentAttendanceStats = {

@@ -1,10 +1,14 @@
 import { googleScriptRun } from "../../shared/gas-client";
 import type {
     AttendanceClassSession,
+    AttendanceSummary,
     AttendanceStatus,
     AttendanceStats,
     ClassRoom,
+    GenderAttendanceSummary,
+    GenderCounts,
     IndexBootstrap,
+    StudentGender,
 } from "../../shared/types";
 import {
     APP_TOKEN_KEY,
@@ -24,6 +28,12 @@ const statusLabels: Record<AttendanceStatus, string> = {
     absent: "ขาด",
     late: "สาย",
     leave: "ลา",
+};
+
+const genderLabels: Record<StudentGender, string> = {
+    male: "ชาย",
+    female: "หญิง",
+    unknown: "ไม่ระบุ",
 };
 
 let token = "";
@@ -88,10 +98,11 @@ function render(): void {
         </section>
         <section id="statsPanel" class="hidden ${panelClass}">
             ${sectionTitle("สถิติละเอียด")}
-            <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+            <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
                 <input id="statsFrom" type="date" class="${fieldClass}" />
                 <input id="statsTo" type="date" value="${todayText()}" class="${fieldClass}" />
                 <select id="statsClass" class="${fieldClass}"><option value="">ทุกห้อง</option>${classOptions(bootstrap.classes, false)}</select>
+                <select id="statsGender" class="${fieldClass}">${genderOptions()}</select>
                 <button id="loadStatsButton" class="${primaryButtonClass}">ดูสถิติ</button>
             </div>
             <div id="statsContent" class="text-sm text-slate-600">เลือกช่วงวันที่แล้วกดดูสถิติ</div>
@@ -154,6 +165,10 @@ function classOptions(classes: ClassRoom[], placeholder = true): string {
         .join("")}`;
 }
 
+function genderOptions(): string {
+    return `<option value="">ทุกเพศ</option><option value="male">ชาย</option><option value="female">หญิง</option><option value="unknown">ไม่ระบุ</option>`;
+}
+
 async function loadOverview(): Promise<void> {
     const button = document.getElementById("loadOverviewButton") as HTMLButtonElement | null;
     if (button) {
@@ -168,14 +183,14 @@ async function loadOverview(): Promise<void> {
         }
         content.innerHTML = `
             <div class="mb-4 grid gap-3 sm:grid-cols-3">${studentCountCards(overview.studentCounts)}</div>
-            <div class="mb-4 grid gap-3 sm:grid-cols-4">${summaryCards(overview.total, overview.studentCounts.checked)}</div>
+            <div class="mb-4 grid gap-3 sm:grid-cols-4">${summaryCards(overview.total, overview.totalByGender, overview.studentCounts.checked)}</div>
             <div class="overflow-x-auto">
                 <table class="w-full min-w-160 overflow-hidden rounded-md text-left text-sm">
                     <thead class="${tableHeadClass}"><tr><th class="p-3">ห้อง</th><th class="p-3">นักเรียนทั้งหมด</th><th class="p-3">สถานะ</th><th class="p-3">มา</th><th class="p-3">ขาด</th><th class="p-3">สาย</th><th class="p-3">ลา</th></tr></thead>
                     <tbody>${overview.classes
                         .map(
                             (row) =>
-                                `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60"><td class="p-3 font-medium text-slate-900">ชั้น ${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-3">${row.studentCount}</td><td class="p-3">${row.checked ? `<span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">เช็คแล้ว</span>` : `<span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">ยังไม่เช็ค</span>`}</td><td class="p-3 text-emerald-700">${row.summary.present}</td><td class="p-3 text-rose-700">${row.summary.absent}</td><td class="p-3 text-amber-700">${row.summary.late}</td><td class="p-3 text-sky-700">${row.summary.leave}</td></tr>`,
+                                `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60"><td class="p-3 font-medium text-slate-900">ชั้น ${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-3">${countCell(row.studentCount, genderBreakdownText(row.studentCountByGender))}</td><td class="p-3">${row.checked ? `<span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">เช็คแล้ว</span>` : `<span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">ยังไม่เช็ค</span>`}</td><td class="p-3">${statusCountCell(row.summary.present, row.summaryByGender, "present", "text-emerald-700")}</td><td class="p-3">${statusCountCell(row.summary.absent, row.summaryByGender, "absent", "text-rose-700")}</td><td class="p-3">${statusCountCell(row.summary.late, row.summaryByGender, "late", "text-amber-700")}</td><td class="p-3">${statusCountCell(row.summary.leave, row.summaryByGender, "leave", "text-sky-700")}</td></tr>`,
                         )
                         .join("")}</tbody>
                 </table>
@@ -193,20 +208,27 @@ function studentCountCards(counts: {
     total: number;
     checked: number;
     unchecked: number;
+    byGender: GenderCounts;
+    checkedByGender: GenderCounts;
+    uncheckedByGender: GenderCounts;
 }): string {
     return [
-        ["นักเรียนทั้งหมด", counts.total, "from-sky-50 to-white border-sky-200 text-sky-700"],
-        ["เช็คแล้ว", counts.checked, "from-emerald-50 to-white border-emerald-200 text-emerald-700"],
-        ["ยังไม่ได้เช็ค", counts.unchecked, "from-amber-50 to-white border-amber-200 text-amber-700"],
+        ["นักเรียนทั้งหมด", counts.total, counts.byGender, "from-sky-50 to-white border-sky-200 text-sky-700"],
+        ["เช็คแล้ว", counts.checked, counts.checkedByGender, "from-emerald-50 to-white border-emerald-200 text-emerald-700"],
+        ["ยังไม่ได้เช็ค", counts.unchecked, counts.uncheckedByGender, "from-amber-50 to-white border-amber-200 text-amber-700"],
     ]
         .map(
-            ([label, value, classes]) =>
-                `<div class="rounded-lg border bg-gradient-to-br ${classes} p-4 shadow-sm"><p class="text-sm font-semibold text-slate-600">${label}</p><p class="mt-1 text-3xl font-bold">${value}</p></div>`,
+            ([label, value, byGender, classes]) =>
+                `<div class="rounded-lg border bg-gradient-to-br ${classes} p-4 shadow-sm"><p class="text-sm font-semibold text-slate-600">${label}</p><p class="mt-1 text-3xl font-bold">${value}</p><p class="mt-1 text-xs font-semibold opacity-80">${genderBreakdownText(byGender as GenderCounts)}</p></div>`,
         )
         .join("");
 }
 
-function summaryCards(summary: Record<AttendanceStatus, number>, baseTotal: number): string {
+function summaryCards(
+    summary: Record<AttendanceStatus, number>,
+    summaryByGender: GenderAttendanceSummary,
+    baseTotal: number,
+): string {
     const statusClasses: Record<AttendanceStatus, string> = {
         present: "border-emerald-200 bg-emerald-50 text-emerald-700",
         absent: "border-rose-200 bg-rose-50 text-rose-700",
@@ -216,9 +238,44 @@ function summaryCards(summary: Record<AttendanceStatus, number>, baseTotal: numb
     return (Object.keys(statusLabels) as AttendanceStatus[])
         .map(
             (status) =>
-                `<div class="rounded-lg border p-4 shadow-sm ${statusClasses[status]}"><p class="text-sm font-semibold">${statusLabels[status]}</p><p class="mt-1 text-3xl font-bold">${summary[status]}</p><p class="mt-2 text-sm font-semibold opacity-80">${formatPercent(summary[status], baseTotal)}</p></div>`,
+                `<div class="rounded-lg border p-4 shadow-sm ${statusClasses[status]}"><p class="text-sm font-semibold">${statusLabels[status]}</p><p class="mt-1 text-3xl font-bold">${summary[status]}</p><p class="mt-1 text-xs font-semibold opacity-80">${statusGenderBreakdownText(summaryByGender, status)}</p><p class="mt-2 text-sm font-semibold opacity-80">${formatPercent(summary[status], baseTotal)}</p></div>`,
         )
         .join("");
+}
+
+function countCell(value: number, detail: string, colorClass = "text-slate-900"): string {
+    return `<span class="font-semibold ${colorClass}">${value}</span><div class="mt-1 text-xs text-slate-500">${escapeHtml(detail)}</div>`;
+}
+
+function statusCountCell(
+    value: number,
+    summaryByGender: GenderAttendanceSummary,
+    status: AttendanceStatus,
+    colorClass: string,
+): string {
+    return countCell(value, statusGenderBreakdownText(summaryByGender, status), colorClass);
+}
+
+function genderBreakdownText(counts: GenderCounts): string {
+    const parts = [
+        `${genderLabels.male} ${counts.male}`,
+        `${genderLabels.female} ${counts.female}`,
+    ];
+    if (counts.unknown > 0) {
+        parts.push(`${genderLabels.unknown} ${counts.unknown}`);
+    }
+    return parts.join(" | ");
+}
+
+function statusGenderBreakdownText(
+    summaryByGender: GenderAttendanceSummary,
+    status: AttendanceStatus,
+): string {
+    return genderBreakdownText({
+        male: summaryByGender.male[status],
+        female: summaryByGender.female[status],
+        unknown: summaryByGender.unknown[status],
+    });
 }
 
 function formatPercent(value: number, total: number): string {
@@ -323,6 +380,9 @@ async function loadStats(): Promise<void> {
             dateFrom: (document.getElementById("statsFrom") as HTMLInputElement).value,
             dateTo: (document.getElementById("statsTo") as HTMLInputElement).value,
             classId: (document.getElementById("statsClass") as HTMLSelectElement).value,
+            gender: (document.getElementById("statsGender") as HTMLSelectElement).value as
+                | StudentGender
+                | "",
         });
         renderStats(stats);
     } catch (error) {
@@ -337,15 +397,63 @@ function renderStats(stats: AttendanceStats): void {
     if (!content) {
         return;
     }
-    content.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-190 overflow-hidden rounded-md text-left text-sm">
-        <thead class="${tableHeadClass}"><tr><th class="p-3">ห้อง</th><th class="p-3">เลขที่</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">มา</th><th class="p-3">ขาด</th><th class="p-3">สาย</th><th class="p-3">ลา</th><th class="p-3">รวม</th></tr></thead>
+    content.innerHTML = `<div class="mb-4 grid gap-3 sm:grid-cols-3">${statsGenderCards(stats)}</div><div class="overflow-x-auto"><table class="w-full min-w-220 overflow-hidden rounded-md text-left text-sm">
+        <thead class="${tableHeadClass}"><tr><th class="p-3">ห้อง</th><th class="p-3">เลขที่</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">เพศ</th><th class="p-3">มา</th><th class="p-3">ขาด</th><th class="p-3">สาย</th><th class="p-3">ลา</th><th class="p-3">รวม</th></tr></thead>
         <tbody>${stats.rows
             .map(
                 (row) =>
-                    `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60"><td class="p-3">${row.classRoom ? `ชั้น ${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}` : "-"}</td><td class="p-3">${escapeHtml(row.student.number)}</td><td class="p-3 font-medium text-slate-900">${escapeHtml(row.student.fullName)}</td><td class="p-3">${statsCell(row.summary.present, row.total, "text-emerald-700")}</td><td class="p-3">${statsCell(row.summary.absent, row.total, "text-rose-700")}</td><td class="p-3">${statsCell(row.summary.late, row.total, "text-amber-700")}</td><td class="p-3">${statsCell(row.summary.leave, row.total, "text-sky-700")}</td><td class="p-3 font-semibold text-slate-900">${row.total}</td></tr>`,
+                    `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60"><td class="p-3">${row.classRoom ? `ชั้น ${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}` : "-"}</td><td class="p-3">${escapeHtml(row.student.number)}</td><td class="p-3 font-medium text-slate-900">${escapeHtml(row.student.fullName)}</td><td class="p-3">${escapeHtml(genderLabels[row.student.gender])}</td><td class="p-3">${statsCell(row.summary.present, row.total, "text-emerald-700")}</td><td class="p-3">${statsCell(row.summary.absent, row.total, "text-rose-700")}</td><td class="p-3">${statsCell(row.summary.late, row.total, "text-amber-700")}</td><td class="p-3">${statsCell(row.summary.leave, row.total, "text-sky-700")}</td><td class="p-3 font-semibold text-slate-900">${row.total}</td></tr>`,
             )
             .join("")}</tbody>
     </table></div>`;
+}
+
+function statsGenderCards(stats: AttendanceStats): string {
+    const summaryByGender = emptyClientGenderAttendanceSummary();
+    const studentCounts = emptyClientGenderCounts();
+    stats.rows.forEach((row) => {
+        studentCounts[row.student.gender] += 1;
+        (Object.keys(statusLabels) as AttendanceStatus[]).forEach((status) => {
+            summaryByGender[row.student.gender][status] += row.summary[status];
+        });
+    });
+    const cardClasses: Record<StudentGender, string> = {
+        male: "border-sky-200 bg-sky-50 text-sky-700",
+        female: "border-rose-200 bg-rose-50 text-rose-700",
+        unknown: "border-slate-200 bg-slate-50 text-slate-700",
+    };
+    return (["male", "female", "unknown"] as StudentGender[])
+        .filter((gender) => gender !== "unknown" || studentCounts.unknown > 0)
+        .map(
+            (gender) =>
+                `<div class="rounded-lg border p-4 shadow-sm ${cardClasses[gender]}"><p class="text-sm font-semibold">${genderLabels[gender]}</p><p class="mt-1 text-3xl font-bold">${studentCounts[gender]}</p><p class="mt-2 text-xs font-semibold opacity-80">มา ${summaryByGender[gender].present} | ขาด ${summaryByGender[gender].absent} | สาย ${summaryByGender[gender].late} | ลา ${summaryByGender[gender].leave}</p></div>`,
+        )
+        .join("");
+}
+
+function emptyClientGenderCounts(): GenderCounts {
+    return {
+        male: 0,
+        female: 0,
+        unknown: 0,
+    };
+}
+
+function emptyClientSummary(): AttendanceSummary {
+    return {
+        present: 0,
+        absent: 0,
+        late: 0,
+        leave: 0,
+    };
+}
+
+function emptyClientGenderAttendanceSummary(): GenderAttendanceSummary {
+    return {
+        male: emptyClientSummary(),
+        female: emptyClientSummary(),
+        unknown: emptyClientSummary(),
+    };
 }
 
 function statsCell(value: number, total: number, colorClass = "text-slate-900"): string {

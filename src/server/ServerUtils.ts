@@ -2,6 +2,9 @@ import type {
     AcademicYear,
     AttendanceStatus,
     CurrentYearRef,
+    GenderAttendanceSummary,
+    GenderCounts,
+    StudentGender,
 } from "../shared/types";
 import { ServerConstant } from "./ServerConstant";
 
@@ -100,11 +103,38 @@ export class ServerUtils {
         };
     }
 
+    static emptyGenderCounts(): GenderCounts {
+        return {
+            male: 0,
+            female: 0,
+            unknown: 0,
+        };
+    }
+
+    static emptyGenderAttendanceSummary(): GenderAttendanceSummary {
+        return {
+            male: this.emptySummary(),
+            female: this.emptySummary(),
+            unknown: this.emptySummary(),
+        };
+    }
+
     static assertAttendanceStatus(status: string): asserts status is AttendanceStatus {
         this.assert(
             ServerConstant.ATTENDANCE_STATUSES.includes(status as AttendanceStatus),
             "สถานะการเช็คชื่อไม่ถูกต้อง",
         );
+    }
+
+    static normalizeStudentGender(value: unknown): StudentGender {
+        const clean = this.normalizeText(value);
+        if (clean === "male" || clean === "ชาย") {
+            return "male";
+        }
+        if (clean === "female" || clean === "หญิง") {
+            return "female";
+        }
+        return "unknown";
     }
 
     static hashText(value: string): string {

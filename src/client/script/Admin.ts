@@ -4,6 +4,7 @@ import type {
     AdminBootstrap,
     ClassRoom,
     Student,
+    StudentGender,
     StudentStatus,
 } from "../../shared/types";
 import {
@@ -26,6 +27,7 @@ const studentCsvHeaders = [
     "number",
     "studentCode",
     "fullName",
+    "gender",
 ] as const;
 
 let token = "";
@@ -255,19 +257,19 @@ function studentsPanel(): string {
             <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 class="font-semibold">Import CSV</h3>
-                    <p class="text-sm text-slate-600">ใช้สำหรับเพิ่มนักเรียนใหม่ในห้องที่เลือก คอลัมน์ที่รองรับ: ${studentCsvHeaders.join(", ")} และระบบจะตั้งสถานะเป็นกำลังศึกษาอัตโนมัติ</p>
+                    <p class="text-sm text-slate-600">ใช้สำหรับเพิ่มนักเรียนใหม่ในห้องที่เลือก คอลัมน์ที่รองรับ: ${studentCsvHeaders.join(", ")} โดย gender ใช้ male/female หรือ ชาย/หญิง และระบบจะตั้งสถานะเป็นกำลังศึกษาอัตโนมัติ</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button id="sampleStudentCsvButton" type="button" class="${secondaryButtonClass}">ตัวอย่าง</button>
                     <button id="importStudentCsvButton" type="button" class="${primaryButtonClass} text-sm">นำเข้า CSV</button>
                 </div>
             </div>
-            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="${fieldClass} font-mono text-sm" placeholder="number,studentCode,fullName"></textarea>
+            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="${fieldClass} font-mono text-sm" placeholder="number,studentCode,fullName,gender"></textarea>
         </div>
         <div class="mb-3 flex justify-end"><button id="addStudentRowButton" class="${secondaryButtonClass}">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-180 overflow-hidden rounded-md text-left text-sm">
-                <thead class="${tableHeadClass}"><tr><th class="p-3">เลขที่</th><th class="p-3">รหัสนักเรียน</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">สถานะ</th><th class="p-3"></th></tr></thead>
+            <table class="w-full min-w-220 overflow-hidden rounded-md text-left text-sm">
+                <thead class="${tableHeadClass}"><tr><th class="p-3">เลขที่</th><th class="p-3">รหัสนักเรียน</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">เพศ</th><th class="p-3">สถานะ</th><th class="p-3"></th></tr></thead>
                 <tbody id="studentRows">${state.students
                     .filter((student) => student.classId === selectedClassId)
                     .map(studentRowHtml)
@@ -311,8 +313,8 @@ function forceDeletePanel(): string {
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full min-w-180 overflow-hidden rounded-md text-left text-sm">
-                            <thead class="${tableHeadClass}"><tr><th class="p-3">เลือก</th><th class="p-3">ห้อง</th><th class="p-3">เลขที่</th><th class="p-3">รหัสนักเรียน</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">สถานะ</th></tr></thead>
+                        <table class="w-full min-w-200 overflow-hidden rounded-md text-left text-sm">
+                            <thead class="${tableHeadClass}"><tr><th class="p-3">เลือก</th><th class="p-3">ห้อง</th><th class="p-3">เลขที่</th><th class="p-3">รหัสนักเรียน</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">เพศ</th><th class="p-3">สถานะ</th></tr></thead>
                             <tbody id="forceDeleteStudentRows">${sortedStudents.map(forceDeleteStudentRowHtml).join("")}</tbody>
                         </table>
                     </div>
@@ -340,6 +342,8 @@ function forceDeleteStudentRowHtml(student: Student): string {
             student.number,
             student.studentCode,
             student.fullName,
+            student.gender,
+            studentGenderLabel(student.gender),
             student.status,
             studentStatusLabel(student.status),
         ].join(" "),
@@ -350,6 +354,7 @@ function forceDeleteStudentRowHtml(student: Student): string {
         <td class="p-3">${escapeHtml(student.number)}</td>
         <td class="p-3">${escapeHtml(student.studentCode || "-")}</td>
         <td class="p-3 font-medium text-slate-900">${escapeHtml(student.fullName)}</td>
+        <td class="p-3">${escapeHtml(studentGenderLabel(student.gender))}</td>
         <td class="p-3">${escapeHtml(studentStatusLabel(student.status))}</td>
     </tr>`;
 }
@@ -369,9 +374,23 @@ function studentRowHtml(row?: Student): string {
         <td class="p-2"><input data-field="number" value="${escapeHtml(row?.number ?? "")}" class="${compactFieldClass}" /></td>
         <td class="p-2"><input data-field="studentCode" value="${escapeHtml(row?.studentCode ?? "")}" class="${compactFieldClass}" /></td>
         <td class="p-2"><input data-field="fullName" value="${escapeHtml(row?.fullName ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><select data-field="gender" class="${compactFieldClass}">${studentGenderOptions(row?.gender ?? "unknown")}</select></td>
         <td class="p-2"><select data-field="status" class="${compactFieldClass}"><option value="active" ${row?.status !== "leave" ? "selected" : ""}>กำลังศึกษา</option><option value="leave" ${row?.status === "leave" ? "selected" : ""}>ออก/พักเรียน</option></select></td>
         ${deleteActionCellHtml()}
     </tr>`;
+}
+
+function studentGenderOptions(selected: StudentGender): string {
+    return [
+        ["unknown", "เลือกเพศ"],
+        ["male", "ชาย"],
+        ["female", "หญิง"],
+    ]
+        .map(
+            ([value, label]) =>
+                `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`,
+        )
+        .join("");
 }
 
 function deleteActionCellHtml(): string {
@@ -434,6 +453,7 @@ function bindStudents(): void {
                 number: "",
                 studentCode: "",
                 fullName: "",
+                gender: "unknown",
                 status: "active",
             }),
         );
@@ -675,9 +695,11 @@ async function saveStudents(button: HTMLButtonElement): Promise<void> {
     setBusy(button, true, "กำลังบันทึก...");
     try {
         const selectedClassId = getSelectedStudentClassId();
+        const selectedClassRows = readStudentRowsFromTable(selectedClassId);
+        validateStudentRowsBeforeSave(selectedClassRows);
         const rows = [
             ...state.students.filter((student) => student.classId !== selectedClassId),
-            ...readStudentRowsFromTable(selectedClassId),
+            ...selectedClassRows,
         ];
         state.students = await googleScriptRun("saveStudents", token, rows);
         render();
@@ -735,17 +757,26 @@ function readStudentRowsFromTable(classId = getSelectedStudentClassId()): Studen
             number: fieldValue(row, "number"),
             studentCode: fieldValue(row, "studentCode"),
             fullName: fieldValue(row, "fullName"),
+            gender: fieldValue(row, "gender") as StudentGender,
             status: fieldValue(row, "status") as StudentStatus,
         }))
         .filter((student) => !isEmptyStudentRow(student));
+}
+
+function validateStudentRowsBeforeSave(rows: Student[]): void {
+    rows.forEach((student) => {
+        if (student.gender === "unknown") {
+            throw new Error(`กรุณาเลือกเพศของนักเรียนเลขที่ ${student.number || "-"}`);
+        }
+    });
 }
 
 function loadSampleStudentCsv(): void {
     const textarea = document.getElementById("studentCsvInput") as HTMLTextAreaElement;
     textarea.value = [
         [...studentCsvHeaders],
-        ["1", "10001", "เด็กชายตัวอย่าง นักเรียน"],
-        ["2", "10002", "เด็กหญิงตัวอย่าง นักเรียน"],
+        ["1", "10001", "เด็กชายตัวอย่าง นักเรียน", "male"],
+        ["2", "10002", "เด็กหญิงตัวอย่าง นักเรียน", "female"],
     ]
         .map((row) => row.map(escapeCsvCell).join(","))
         .join("\n");
@@ -786,12 +817,14 @@ function parseStudentsCsv(csvText: string, classId: string): Student[] {
         const number = csvCell(row, headerIndexes.number);
         const studentCode = csvCell(row, headerIndexes.studentCode);
         const fullName = csvCell(row, headerIndexes.fullName);
+        const gender = normalizeStudentGender(csvCell(row, headerIndexes.gender));
         return {
             id: "",
             classId,
             number,
             studentCode,
             fullName,
+            gender,
             status: "active",
         };
     });
@@ -827,6 +860,9 @@ function validateStudentCsvImport(importRows: Student[], currentRows: Student[])
         }
         if (!student.fullName) {
             throw new Error(`ต้องระบุชื่อ-สกุลที่บรรทัด ${lineNumber}`);
+        }
+        if (student.gender === "unknown") {
+            throw new Error(`ต้องระบุเพศชายหรือหญิงที่บรรทัด ${lineNumber}`);
         }
         const classNumber = classNumberKey(student.classId, student.number);
         if (existingClassNumbers.has(classNumber)) {
@@ -876,6 +912,27 @@ function classLabelById(classId: string): string {
 
 function studentStatusLabel(status: StudentStatus): string {
     return status === "leave" ? "ออก/พักเรียน" : "กำลังศึกษา";
+}
+
+function studentGenderLabel(gender: StudentGender): string {
+    if (gender === "male") {
+        return "ชาย";
+    }
+    if (gender === "female") {
+        return "หญิง";
+    }
+    return "ไม่ระบุ";
+}
+
+function normalizeStudentGender(value: string): StudentGender {
+    const clean = normalizeSearchText(value);
+    if (clean === "male" || clean === "m" || clean === "ชาย") {
+        return "male";
+    }
+    if (clean === "female" || clean === "f" || clean === "หญิง") {
+        return "female";
+    }
+    return "unknown";
 }
 
 function normalizeSearchText(value: string): string {

@@ -1,4 +1,9 @@
-import type { AppPages, AttendanceStatus, StudentStatus } from "../shared/types";
+import type {
+    AppPages,
+    AttendanceStatus,
+    StudentGender,
+    StudentStatus,
+} from "../shared/types";
 
 export class ServerConstant {
     static readonly APP_PAGES = ["Index", "Admin", "Login", "Setup"] as const;
@@ -36,11 +41,13 @@ export class ServerConstant {
 
     static readonly HEADERS = {
         Classes: ["id", "grade", "room"],
-        Students: ["id", "classId", "number", "studentCode", "fullName", "status"],
+        Students: ["id", "classId", "number", "studentCode", "fullName", "status", "gender"],
         Attendance: ["id", "date", "classId", "studentId", "status"],
     } as const;
 
     static readonly STUDENT_STATUSES: StudentStatus[] = ["active", "leave"];
+
+    static readonly STUDENT_GENDERS: StudentGender[] = ["male", "female", "unknown"];
 
     static readonly ATTENDANCE_STATUSES: AttendanceStatus[] = [
         "present",
