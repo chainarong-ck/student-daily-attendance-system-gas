@@ -25,19 +25,25 @@ function renderLogin(): void {
     document.body.innerHTML = shellHtml(
         title,
         `
-        <div class="mx-auto max-w-md rounded-lg bg-white p-6 shadow-sm">
+        <div class="mx-auto max-w-md overflow-hidden rounded-lg border border-white/70 bg-white/95 shadow-xl shadow-slate-200/70">
+            <div class="p-6">
             ${noticeHtml("loginNotice")}
-            <div class="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 text-sm font-medium">
-                <button type="button" data-login-role="app" class="rounded-md px-3 py-2 text-center ${role === "app" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600"}">ครู</button>
-                <button type="button" data-login-role="admin" class="rounded-md px-3 py-2 text-center ${role === "admin" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600"}">Admin</button>
+            <div class="mb-5">
+                <p class="text-sm font-semibold text-teal-700">เลือกบทบาทเพื่อเข้าใช้งาน</p>
+                <p class="mt-1 text-sm text-slate-500">ระบบเช็คชื่อนักเรียนรายวัน</p>
+            </div>
+            <div class="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm font-semibold">
+                <button type="button" data-login-role="app" class="rounded-md px-3 py-2 text-center transition ${role === "app" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600 hover:bg-white hover:text-teal-800"}">ครู</button>
+                <button type="button" data-login-role="admin" class="rounded-md px-3 py-2 text-center transition ${role === "admin" ? "bg-white text-orange-700 shadow-sm" : "text-slate-600 hover:bg-white hover:text-teal-800"}">Admin</button>
             </div>
             <form id="loginForm" class="grid gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium">รหัสผ่าน</label>
-                    <input name="password" type="password" required autofocus class="w-full rounded-md border border-slate-300 px-3 py-2 focus:border-orange-500 focus:outline-none" />
+                    <input name="password" type="password" required autofocus class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
                 </div>
-                <button id="loginButton" type="submit" class="rounded-md bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60">เข้าสู่ระบบ</button>
+                <button id="loginButton" type="submit" class="rounded-md bg-orange-600 px-4 py-2.5 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60">เข้าสู่ระบบ</button>
             </form>
+            </div>
         </div>`,
         {
             activePage: "Login",

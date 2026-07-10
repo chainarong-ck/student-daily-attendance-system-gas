@@ -49,11 +49,11 @@ export function showLoginRequired(role: AuthRole, message?: string): void {
     document.body.innerHTML = shellHtml(
         "ยังไม่ได้เข้าสู่ระบบ",
         `
-        <section class="mx-auto max-w-xl rounded-lg bg-white p-6 text-center shadow-sm">
+        <section class="mx-auto max-w-xl rounded-lg border border-white/70 bg-white/95 p-6 text-center shadow-xl shadow-slate-200/70">
             <h2 class="text-xl font-semibold text-slate-900">กรุณาเข้าสู่ระบบก่อนใช้งาน</h2>
             <p class="mt-2 text-sm text-slate-600">${escapeHtml(message ?? "หน้านี้ต้องเข้าสู่ระบบก่อน")}</p>
             <p class="mt-2 text-sm text-slate-500">ระบบกำลังพาไปหน้า Login หากไม่เปลี่ยนหน้าให้กดปุ่มด้านล่าง</p>
-            <button id="goLoginButton" type="button" class="mt-5 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700">ไปหน้า Login</button>
+            <button id="goLoginButton" type="button" class="mt-5 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white transition hover:bg-orange-700">ไปหน้า Login</button>
         </section>`,
         {
             activePage: "Login",
@@ -133,17 +133,18 @@ export function setBusy(button: HTMLButtonElement, busy: boolean, label?: string
 }
 
 export function footerHtml(): string {
-    return `<footer class="mt-10 border-t border-slate-200 py-5 text-center text-sm text-slate-500">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย นายชัยณรงค์ คงพล | GitHub: <a href="https://github.com/chainarong-ck" target="_blank" rel="noopener noreferrer" class="font-medium text-orange-600">Chainarong-CK</a></footer>`;
+    return `<footer class="mt-10 rounded-lg border border-white/70 bg-white/70 px-4 py-5 text-center text-sm text-slate-500 shadow-sm">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย นายชัยณรงค์ คงพล | GitHub: <a href="https://github.com/chainarong-ck" target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-700 hover:text-orange-600">Chainarong-CK</a></footer>`;
 }
 
 export function shellHtml(title: string, body: string, options: ShellOptions): string {
     return `
-        <main class="min-h-screen bg-slate-100 text-slate-900">
+        <main class="min-h-screen bg-[linear-gradient(135deg,#f8fbff_0%,#eefdf6_42%,#fff7ed_100%)] text-slate-900">
             <section class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                <header class="mb-6 flex flex-col gap-3 rounded-lg bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <header class="mb-6 overflow-hidden rounded-lg border border-white/70 bg-white/90 shadow-xl shadow-slate-200/60 backdrop-blur">
+                    <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p class="text-sm font-medium text-orange-600">Student Daily Attendance</p>
-                        <h1 class="text-2xl font-bold">${escapeHtml(title)}</h1>
+                        <p class="text-sm font-semibold uppercase text-teal-700">Student Daily Attendance</p>
+                        <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">${escapeHtml(title)}</h1>
                     </div>
                     <nav class="flex flex-wrap gap-2 text-sm">
                         ${navButton("Index", "หน้าเช็คชื่อ", options)}
@@ -151,6 +152,7 @@ export function shellHtml(title: string, body: string, options: ShellOptions): s
                         ${navButton("Login", "Login", options)}
                         ${logoutButton(options)}
                     </nav>
+                    </div>
                 </header>
                 ${body}
                 ${footerHtml()}
@@ -176,11 +178,11 @@ function logoutButton(options: ShellOptions): string {
     if (!options.logoutRole) {
         return "";
     }
-    return `<button type="button" data-logout-role="${options.logoutRole}" class="rounded-md bg-slate-800 px-3 py-2 font-medium text-white hover:bg-slate-900">ออกจากระบบ</button>`;
+    return `<button type="button" data-logout-role="${options.logoutRole}" class="rounded-md bg-slate-900 px-3 py-2 font-semibold text-white shadow-sm transition hover:bg-slate-700">ออกจากระบบ</button>`;
 }
 
 export function noticeHtml(id: string): string {
-    return `<div id="${id}" data-notice class="mb-4 hidden rounded-md border px-4 py-3 text-sm"><div class="flex items-start justify-between gap-3"><span data-notice-message></span><button type="button" data-close-notice class="rounded-md px-2 font-bold opacity-70 hover:bg-white hover:opacity-100" aria-label="ปิดข้อความแจ้งเตือน">X</button></div></div>`;
+    return `<div id="${id}" data-notice class="mb-4 hidden rounded-md border px-4 py-3 text-sm shadow-sm"><div class="flex items-start justify-between gap-3"><span data-notice-message></span><button type="button" data-close-notice class="rounded-lg px-2 font-bold opacity-70 hover:bg-white hover:opacity-100" aria-label="ปิดข้อความแจ้งเตือน">X</button></div></div>`;
 }
 
 export function showNotice(id: string, text: string, tone: "ok" | "error" | "info"): void {
@@ -191,9 +193,9 @@ export function showNotice(id: string, text: string, tone: "ok" | "error" | "inf
     const classes = {
         ok: "border-emerald-200 bg-emerald-50 text-emerald-800",
         error: "border-red-200 bg-red-50 text-red-800",
-        info: "border-orange-200 bg-orange-50 text-orange-800",
+        info: "border-sky-200 bg-sky-50 text-sky-800",
     };
-    element.className = `mb-4 rounded-md border px-4 py-3 text-sm ${classes[tone]}`;
+    element.className = `mb-4 rounded-md border px-4 py-3 text-sm shadow-sm ${classes[tone]}`;
     const message = element.querySelector("[data-notice-message]");
     if (message) {
         message.textContent = text;

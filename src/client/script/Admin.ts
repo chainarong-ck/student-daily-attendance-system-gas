@@ -33,6 +33,18 @@ let state: AdminBootstrap;
 let activeAdminTab: AdminTab = "settings";
 let selectedStudentClassId = "";
 
+const panelClass =
+    "rounded-lg border border-white/70 bg-white/95 p-5 shadow-xl shadow-slate-200/60";
+const fieldClass =
+    "w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100";
+const compactFieldClass =
+    "w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 shadow-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100";
+const primaryButtonClass =
+    "rounded-md bg-orange-600 px-4 py-2 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60";
+const secondaryButtonClass =
+    "rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800";
+const tableHeadClass = "bg-gradient-to-r from-teal-50 to-orange-50 text-slate-700";
+
 async function main(): Promise<void> {
     token = localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
     if (!token) {
@@ -54,7 +66,7 @@ function render(): void {
         "Admin",
         `
         ${noticeHtml("adminNotice")}
-        <div class="mb-4 flex flex-wrap gap-2">
+        <div class="mb-4 flex flex-wrap gap-2 rounded-lg border border-white/70 bg-white/70 p-2 shadow-sm">
             ${adminTabButton("settings", "ตั้งค่าระบบ")}
             ${adminTabButton("years", "ปีการศึกษา")}
             ${adminTabButton("classes", "ห้องเรียน")}
@@ -84,7 +96,11 @@ function render(): void {
 }
 
 function adminTabButton(tab: AdminTab, label: string): string {
-    return `<button type="button" data-admin-tab="${tab}" class="rounded-md px-4 py-2 text-sm font-semibold ${activeAdminTab === tab ? "bg-orange-600 text-white" : "bg-white text-slate-700"}">${label}</button>`;
+    return `<button type="button" data-admin-tab="${tab}" class="${adminTabButtonClass(activeAdminTab === tab)}">${label}</button>`;
+}
+
+function adminTabButtonClass(active: boolean): string {
+    return `rounded-md px-4 py-2 text-sm font-semibold transition ${active ? "bg-orange-600 text-white" : "bg-white text-slate-700 shadow-sm hover:bg-teal-50 hover:text-teal-800"}`;
 }
 
 function bindAdminTabs(): void {
@@ -104,15 +120,14 @@ function activateAdminTab(): void {
         const button = document.querySelector<HTMLButtonElement>(
             `[data-admin-tab="${tab}"]`,
         );
-        button?.classList.toggle("bg-orange-600", activeAdminTab === tab);
-        button?.classList.toggle("text-white", activeAdminTab === tab);
-        button?.classList.toggle("bg-white", activeAdminTab !== tab);
-        button?.classList.toggle("text-slate-700", activeAdminTab !== tab);
+        if (button) {
+            button.className = adminTabButtonClass(activeAdminTab === tab);
+        }
     });
 }
 
 function panel(title: string, content: string, subtitle?: string): string {
-    return `<section class="rounded-lg bg-white p-5 shadow-sm"><h2 class="mb-4 text-xl font-semibold">${title}${subtitle ? `<span class="ml-2 text-sm font-medium text-slate-500">${escapeHtml(subtitle)}</span>` : ""}</h2>${content}</section>`;
+    return `<section class="${panelClass}"><h2 class="mb-4 text-xl font-bold text-slate-950">${title}${subtitle ? `<span class="ml-2 text-sm font-semibold text-teal-700">${escapeHtml(subtitle)}</span>` : ""}</h2>${content}</section>`;
 }
 
 function settingsPanel(): string {
@@ -122,18 +137,18 @@ function settingsPanel(): string {
         <form id="settingsForm" class="grid gap-4 sm:grid-cols-3">
             <div class="sm:col-span-3">
                 <label class="mb-1 block text-sm font-medium">ชื่อโรงเรียน</label>
-                <input name="schoolName" maxlength="100" value="${escapeHtml(state.config.schoolName)}" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                <input name="schoolName" maxlength="100" value="${escapeHtml(state.config.schoolName)}" class="${fieldClass}" />
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium">เปลี่ยนรหัสครู</label>
-                <input name="appPassword" type="password" placeholder="เว้นว่างถ้าไม่เปลี่ยน" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                <input name="appPassword" type="password" placeholder="เว้นว่างถ้าไม่เปลี่ยน" class="${fieldClass}" />
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium">เปลี่ยนรหัส Admin</label>
-                <input name="adminPassword" type="password" placeholder="เว้นว่างถ้าไม่เปลี่ยน" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                <input name="adminPassword" type="password" placeholder="เว้นว่างถ้าไม่เปลี่ยน" class="${fieldClass}" />
             </div>
             <div class="flex items-end">
-                <button id="saveSettingsButton" class="w-full rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกตั้งค่า</button>
+                <button id="saveSettingsButton" class="w-full ${primaryButtonClass}">บันทึกตั้งค่า</button>
             </div>
         </form>`,
     );
@@ -147,10 +162,10 @@ function academicYearPanel(): string {
         "ปีการศึกษา",
         `
         <p class="mb-3 text-sm text-slate-600">แก้ไขปีการศึกษา/เทอม และ Google Sheet ID ได้จากตารางนี้ เลือกแถวที่เป็นปีการศึกษาปัจจุบันก่อนบันทึก</p>
-        <div class="mb-3 flex justify-end"><button id="addAcademicYearRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
+        <div class="mb-3 flex justify-end"><button id="addAcademicYearRowButton" class="${secondaryButtonClass}">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-190 text-left text-sm">
-                <thead class="bg-slate-100"><tr><th class="p-2">ปัจจุบัน</th><th class="p-2">ปีการศึกษา</th><th class="p-2">เทอม</th><th class="p-2">Google Sheet URL หรือ ID</th><th class="p-2"></th></tr></thead>
+            <table class="w-full min-w-190 overflow-hidden rounded-md text-left text-sm">
+                <thead class="${tableHeadClass}"><tr><th class="p-3">ปัจจุบัน</th><th class="p-3">ปีการศึกษา</th><th class="p-3">เทอม</th><th class="p-3">Google Sheet URL หรือ ID</th><th class="p-3"></th></tr></thead>
                 <tbody id="academicYearRows">${state.config.academicYears
                     .map((year) =>
                         academicYearRowHtml(
@@ -161,16 +176,16 @@ function academicYearPanel(): string {
                     .join("")}</tbody>
             </table>
         </div>
-        <button id="saveAcademicYearsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกปีการศึกษา</button>`,
+        <button id="saveAcademicYearsButton" class="mt-4 ${primaryButtonClass}">บันทึกปีการศึกษา</button>`,
     );
 }
 
 function academicYearRowHtml(row?: AcademicYear, current = false): string {
-    return `<tr class="border-b border-slate-100">
+    return `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60">
         <td class="p-2 text-center"><input type="radio" name="currentAcademicYear" data-current-year ${current ? "checked" : ""} /></td>
-        <td class="p-2"><input data-field="year" type="number" value="${escapeHtml(row?.y ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2"><input data-field="term" type="number" value="${escapeHtml(row?.t ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2"><input data-field="sheetId" value="${escapeHtml(row?.id ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
+        <td class="p-2"><input data-field="year" type="number" value="${escapeHtml(row?.y ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="term" type="number" value="${escapeHtml(row?.t ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="sheetId" value="${escapeHtml(row?.id ?? "")}" class="${compactFieldClass}" /></td>
         ${deleteActionCellHtml()}
     </tr>`;
 }
@@ -186,22 +201,22 @@ function classesPanel(): string {
     return panel(
         "ห้องเรียน",
         `
-        <div class="mb-3 flex justify-end"><button id="addClassRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
+        <div class="mb-3 flex justify-end"><button id="addClassRowButton" class="${secondaryButtonClass}">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-130 text-left text-sm">
-                <thead class="bg-slate-100"><tr><th class="p-2">ระดับชั้น</th><th class="p-2">ห้อง</th><th class="p-2"></th></tr></thead>
+            <table class="w-full min-w-130 overflow-hidden rounded-md text-left text-sm">
+                <thead class="${tableHeadClass}"><tr><th class="p-3">ระดับชั้น</th><th class="p-3">ห้อง</th><th class="p-3"></th></tr></thead>
                 <tbody id="classRows">${state.classes.map(classRowHtml).join("")}</tbody>
             </table>
         </div>
-        <button id="saveClassesButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกห้องเรียน</button>`,
+        <button id="saveClassesButton" class="mt-4 ${primaryButtonClass}">บันทึกห้องเรียน</button>`,
         currentAcademicYearLabel(),
     );
 }
 
 function classRowHtml(row?: ClassRoom): string {
-    return `<tr class="border-b border-slate-100" data-id="${escapeHtml(row?.id ?? "")}">
-        <td class="p-2"><input data-field="grade" value="${escapeHtml(row?.grade ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2"><input data-field="room" value="${escapeHtml(row?.room ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
+    return `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60" data-id="${escapeHtml(row?.id ?? "")}">
+        <td class="p-2"><input data-field="grade" value="${escapeHtml(row?.grade ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="room" value="${escapeHtml(row?.room ?? "")}" class="${compactFieldClass}" /></td>
         ${deleteActionCellHtml()}
     </tr>`;
 }
@@ -212,7 +227,7 @@ function studentsPanel(): string {
     if (state.classes.length === 0) {
         return panel(
             "รายชื่อนักเรียน",
-            `<p class="rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">กรุณาเพิ่มห้องเรียนก่อน จึงจะเพิ่มรายชื่อนักเรียนได้</p>`,
+            `<p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">กรุณาเพิ่มห้องเรียนก่อน จึงจะเพิ่มรายชื่อนักเรียนได้</p>`,
             currentAcademicYearLabel(),
         );
     }
@@ -222,7 +237,7 @@ function studentsPanel(): string {
         <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
             <div>
                 <label class="mb-1 block text-sm font-medium">เลือกห้องเรียนที่ต้องการจัดการ</label>
-                <select id="studentClassSelect" class="w-full rounded-md border border-slate-300 px-3 py-2">
+                <select id="studentClassSelect" class="${fieldClass}">
                     ${state.classes
                         .map(
                             (classRoom) =>
@@ -232,34 +247,34 @@ function studentsPanel(): string {
                 </select>
             </div>
             <div class="flex items-end">
-                <p class="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">กำลังจัดการห้อง ${escapeHtml(selectedClass ? classLabel(selectedClass) : "-")}</p>
+                <p class="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800">กำลังจัดการห้อง ${escapeHtml(selectedClass ? classLabel(selectedClass) : "-")}</p>
             </div>
         </div>
         <p class="mb-3 text-sm text-slate-600">หน้านี้จัดการนักเรียนทีละห้องเท่านั้น เพื่อลดความเสี่ยงการแก้ไขข้อมูลห้องอื่นโดยไม่ตั้งใจ</p>
-        <div class="mb-4 rounded-lg border border-slate-200 p-4">
+        <div class="mb-4 rounded-lg border border-sky-100 bg-sky-50/50 p-4">
             <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 class="font-semibold">Import CSV</h3>
                     <p class="text-sm text-slate-600">ใช้สำหรับเพิ่มนักเรียนใหม่ในห้องที่เลือก คอลัมน์ที่รองรับ: ${studentCsvHeaders.join(", ")} และระบบจะตั้งสถานะเป็นกำลังศึกษาอัตโนมัติ</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button id="sampleStudentCsvButton" type="button" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">ตัวอย่าง</button>
-                    <button id="importStudentCsvButton" type="button" class="rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white">นำเข้า CSV</button>
+                    <button id="sampleStudentCsvButton" type="button" class="${secondaryButtonClass}">ตัวอย่าง</button>
+                    <button id="importStudentCsvButton" type="button" class="${primaryButtonClass} text-sm">นำเข้า CSV</button>
                 </div>
             </div>
-            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="number,studentCode,fullName"></textarea>
+            <textarea id="studentCsvInput" rows="8" spellcheck="false" class="${fieldClass} font-mono text-sm" placeholder="number,studentCode,fullName"></textarea>
         </div>
-        <div class="mb-3 flex justify-end"><button id="addStudentRowButton" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold">+ เพิ่มแถว</button></div>
+        <div class="mb-3 flex justify-end"><button id="addStudentRowButton" class="${secondaryButtonClass}">+ เพิ่มแถว</button></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-180 text-left text-sm">
-                <thead class="bg-slate-100"><tr><th class="p-2">เลขที่</th><th class="p-2">รหัสนักเรียน</th><th class="p-2">ชื่อ-สกุล</th><th class="p-2">สถานะ</th><th class="p-2"></th></tr></thead>
+            <table class="w-full min-w-180 overflow-hidden rounded-md text-left text-sm">
+                <thead class="${tableHeadClass}"><tr><th class="p-3">เลขที่</th><th class="p-3">รหัสนักเรียน</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">สถานะ</th><th class="p-3"></th></tr></thead>
                 <tbody id="studentRows">${state.students
                     .filter((student) => student.classId === selectedClassId)
                     .map(studentRowHtml)
                     .join("")}</tbody>
             </table>
         </div>
-        <button id="saveStudentsButton" class="mt-4 rounded-md bg-orange-600 px-4 py-2 font-semibold text-white">บันทึกรายชื่อนักเรียนห้องนี้</button>`,
+        <button id="saveStudentsButton" class="mt-4 ${primaryButtonClass}">บันทึกรายชื่อนักเรียนห้องนี้</button>`,
         currentAcademicYearLabel(),
     );
 }
@@ -278,37 +293,37 @@ function forceDeletePanel(): string {
     return panel(
         "บังคับลบข้อมูล",
         `
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 shadow-sm">
             <p class="font-semibold">ใช้เฉพาะกรณีต้องการลบนักเรียนออกจากระบบถาวร</p>
             <p class="mt-1">ระบบจะลบนักเรียนที่เลือกออกจากรายชื่อ พร้อมลบประวัติการเช็คชื่อทั้งหมดของนักเรียนคนนั้นในปีการศึกษาปัจจุบัน การทำงานนี้ไม่สามารถย้อนกลับจากระบบได้</p>
         </div>
         ${
             sortedStudents.length === 0
-                ? `<p class="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">ยังไม่มีรายชื่อนักเรียนในปีการศึกษานี้</p>`
+                ? `<p class="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">ยังไม่มีรายชื่อนักเรียนในปีการศึกษานี้</p>`
                 : `
                     <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                         <div>
                             <label class="mb-1 block text-sm font-medium">ค้นหานักเรียน</label>
-                            <input id="forceDeleteStudentSearch" placeholder="ค้นหาจากชื่อ รหัสนักเรียน เลขที่ หรือห้อง" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                            <input id="forceDeleteStudentSearch" placeholder="ค้นหาจากชื่อ รหัสนักเรียน เลขที่ หรือห้อง" class="${fieldClass}" />
                         </div>
                         <div class="flex items-end">
-                            <p id="forceDeleteSelectedCount" class="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">เลือกแล้ว 0 คน</p>
+                            <p id="forceDeleteSelectedCount" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">เลือกแล้ว 0 คน</p>
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full min-w-180 text-left text-sm">
-                            <thead class="bg-slate-100"><tr><th class="p-2">เลือก</th><th class="p-2">ห้อง</th><th class="p-2">เลขที่</th><th class="p-2">รหัสนักเรียน</th><th class="p-2">ชื่อ-สกุล</th><th class="p-2">สถานะ</th></tr></thead>
+                        <table class="w-full min-w-180 overflow-hidden rounded-md text-left text-sm">
+                            <thead class="${tableHeadClass}"><tr><th class="p-3">เลือก</th><th class="p-3">ห้อง</th><th class="p-3">เลขที่</th><th class="p-3">รหัสนักเรียน</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">สถานะ</th></tr></thead>
                             <tbody id="forceDeleteStudentRows">${sortedStudents.map(forceDeleteStudentRowHtml).join("")}</tbody>
                         </table>
                     </div>
-                    <div class="mt-4 grid gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-[1fr_auto]">
+                    <div class="mt-4 grid gap-3 rounded-lg border border-red-100 bg-red-50/40 p-4 sm:grid-cols-[1fr_auto]">
                         <div>
                             <label class="mb-1 block text-sm font-medium">ยืนยันการบังคับลบ</label>
-                            <input id="forceDeleteConfirmInput" placeholder="พิมพ์ ${forceDeleteConfirmText}" class="w-full rounded-md border border-slate-300 px-3 py-2" />
+                            <input id="forceDeleteConfirmInput" placeholder="พิมพ์ ${forceDeleteConfirmText}" class="${fieldClass}" />
                             <p class="mt-1 text-sm text-slate-600">ต้องพิมพ์คำว่า ${forceDeleteConfirmText} ให้ตรงก่อนจึงจะลบได้</p>
                         </div>
                         <div class="flex items-end">
-                            <button id="forceDeleteStudentsButton" type="button" disabled class="w-full rounded-md bg-red-700 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">บังคับลบนักเรียนที่เลือก</button>
+                            <button id="forceDeleteStudentsButton" type="button" disabled class="w-full rounded-md bg-red-700 px-4 py-2 font-semibold text-white shadow-lg shadow-red-100 transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60">บังคับลบนักเรียนที่เลือก</button>
                         </div>
                     </div>
                 `
@@ -329,13 +344,13 @@ function forceDeleteStudentRowHtml(student: Student): string {
             studentStatusLabel(student.status),
         ].join(" "),
     );
-    return `<tr class="border-b border-slate-100" data-force-delete-row data-search="${escapeHtml(searchText)}">
-        <td class="p-2 text-center"><input type="checkbox" data-force-delete-student value="${escapeHtml(student.id)}" /></td>
-        <td class="p-2">${escapeHtml(classText)}</td>
-        <td class="p-2">${escapeHtml(student.number)}</td>
-        <td class="p-2">${escapeHtml(student.studentCode || "-")}</td>
-        <td class="p-2 font-medium text-slate-900">${escapeHtml(student.fullName)}</td>
-        <td class="p-2">${escapeHtml(studentStatusLabel(student.status))}</td>
+    return `<tr class="border-b border-slate-100 transition hover:bg-rose-50/60" data-force-delete-row data-search="${escapeHtml(searchText)}">
+        <td class="p-3 text-center"><input type="checkbox" data-force-delete-student value="${escapeHtml(student.id)}" /></td>
+        <td class="p-3">${escapeHtml(classText)}</td>
+        <td class="p-3">${escapeHtml(student.number)}</td>
+        <td class="p-3">${escapeHtml(student.studentCode || "-")}</td>
+        <td class="p-3 font-medium text-slate-900">${escapeHtml(student.fullName)}</td>
+        <td class="p-3">${escapeHtml(studentStatusLabel(student.status))}</td>
     </tr>`;
 }
 
@@ -350,18 +365,18 @@ function getSelectedStudentClassId(): string {
 }
 
 function studentRowHtml(row?: Student): string {
-    return `<tr class="border-b border-slate-100" data-id="${escapeHtml(row?.id ?? "")}">
-        <td class="p-2"><input data-field="number" value="${escapeHtml(row?.number ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2"><input data-field="studentCode" value="${escapeHtml(row?.studentCode ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2"><input data-field="fullName" value="${escapeHtml(row?.fullName ?? "")}" class="w-full rounded-md border border-slate-300 px-2 py-1" /></td>
-        <td class="p-2"><select data-field="status" class="w-full rounded-md border border-slate-300 px-2 py-1"><option value="active" ${row?.status !== "leave" ? "selected" : ""}>กำลังศึกษา</option><option value="leave" ${row?.status === "leave" ? "selected" : ""}>ออก/พักเรียน</option></select></td>
+    return `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60" data-id="${escapeHtml(row?.id ?? "")}">
+        <td class="p-2"><input data-field="number" value="${escapeHtml(row?.number ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="studentCode" value="${escapeHtml(row?.studentCode ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="fullName" value="${escapeHtml(row?.fullName ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><select data-field="status" class="${compactFieldClass}"><option value="active" ${row?.status !== "leave" ? "selected" : ""}>กำลังศึกษา</option><option value="leave" ${row?.status === "leave" ? "selected" : ""}>ออก/พักเรียน</option></select></td>
         ${deleteActionCellHtml()}
     </tr>`;
 }
 
 function deleteActionCellHtml(): string {
     return `<td class="p-2 text-right">
-        <button data-toggle-delete-row type="button" class="rounded-md bg-red-50 px-2 py-1 text-red-700">ลบ</button>
+        <button data-toggle-delete-row type="button" class="rounded-lg bg-red-50 px-2.5 py-1.5 font-semibold text-red-700 transition hover:bg-red-100">ลบ</button>
         <span data-delete-hint class="mt-1 hidden text-xs font-medium text-red-700">จะลบเมื่อบันทึก</span>
     </td>`;
 }
