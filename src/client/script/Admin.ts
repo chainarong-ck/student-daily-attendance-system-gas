@@ -45,12 +45,16 @@ const primaryButtonClass =
     "rounded-md bg-orange-600 px-4 py-2 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60";
 const secondaryButtonClass =
     "rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800";
-const tableHeadClass = "bg-gradient-to-r from-teal-50 to-orange-50 text-slate-700";
+const tableHeadClass =
+    "bg-gradient-to-r from-teal-50 to-orange-50 text-slate-700";
 
 async function main(): Promise<void> {
     token = localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
     if (!token) {
-        showLoginRequired("admin", "กรุณา Login ด้วยรหัส Admin ก่อนเข้าใช้งานหน้าผู้ดูแลระบบ");
+        showLoginRequired(
+            "admin",
+            "กรุณา Login ด้วยรหัส Admin ก่อนเข้าใช้งานหน้าผู้ดูแลระบบ",
+        );
         return;
     }
     try {
@@ -106,16 +110,27 @@ function adminTabButtonClass(active: boolean): string {
 }
 
 function bindAdminTabs(): void {
-    document.querySelectorAll<HTMLButtonElement>("[data-admin-tab]").forEach((button) => {
-        button.addEventListener("click", () => {
-            activeAdminTab = (button.dataset.adminTab ?? "settings") as AdminTab;
-            activateAdminTab();
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-admin-tab]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                activeAdminTab = (button.dataset.adminTab ??
+                    "settings") as AdminTab;
+                activateAdminTab();
+            });
         });
-    });
 }
 
 function activateAdminTab(): void {
-    (["settings", "years", "classes", "students", "forceDelete"] as AdminTab[]).forEach((tab) => {
+    (
+        [
+            "settings",
+            "years",
+            "classes",
+            "students",
+            "forceDelete",
+        ] as AdminTab[]
+    ).forEach((tab) => {
         document
             .getElementById(`${tab}AdminPanel`)
             ?.classList.toggle("hidden", activeAdminTab !== tab);
@@ -225,7 +240,9 @@ function classRowHtml(row?: ClassRoom): string {
 
 function studentsPanel(): string {
     const selectedClassId = getSelectedStudentClassId();
-    const selectedClass = state.classes.find((classRoom) => classRoom.id === selectedClassId);
+    const selectedClass = state.classes.find(
+        (classRoom) => classRoom.id === selectedClassId,
+    );
     if (state.classes.length === 0) {
         return panel(
             "รายชื่อนักเรียน",
@@ -362,7 +379,9 @@ function forceDeleteStudentRowHtml(student: Student): string {
 function getSelectedStudentClassId(): string {
     if (
         !selectedStudentClassId ||
-        !state.classes.some((classRoom) => classRoom.id === selectedStudentClassId)
+        !state.classes.some(
+            (classRoom) => classRoom.id === selectedStudentClassId,
+        )
     ) {
         selectedStudentClassId = state.classes[0]?.id ?? "";
     }
@@ -402,7 +421,9 @@ function deleteActionCellHtml(): string {
 
 function bindSettings(): void {
     const form = document.getElementById("settingsForm") as HTMLFormElement;
-    const button = document.getElementById("saveSettingsButton") as HTMLButtonElement;
+    const button = document.getElementById(
+        "saveSettingsButton",
+    ) as HTMLButtonElement;
     form.addEventListener("submit", (event) => {
         event.preventDefault();
         void saveSettings(form, button);
@@ -410,115 +431,183 @@ function bindSettings(): void {
 }
 
 function bindAcademicYears(): void {
-    document.getElementById("addAcademicYearRowButton")?.addEventListener("click", () => {
-        const tbody = document.getElementById("academicYearRows");
-        const shouldSelect = !hasActiveCurrentAcademicYearSelection();
-        tbody?.insertAdjacentHTML("beforeend", academicYearRowHtml(undefined, shouldSelect));
-    });
-    document.getElementById("academicYearRows")?.addEventListener("click", toggleDeleteRow);
-    document.getElementById("saveAcademicYearsButton")?.addEventListener("click", () => {
-        const button = document.getElementById("saveAcademicYearsButton") as HTMLButtonElement;
-        void saveAcademicYears(button);
-    });
+    document
+        .getElementById("addAcademicYearRowButton")
+        ?.addEventListener("click", () => {
+            const tbody = document.getElementById("academicYearRows");
+            const shouldSelect = !hasActiveCurrentAcademicYearSelection();
+            tbody?.insertAdjacentHTML(
+                "beforeend",
+                academicYearRowHtml(undefined, shouldSelect),
+            );
+        });
+    document
+        .getElementById("academicYearRows")
+        ?.addEventListener("click", toggleDeleteRow);
+    document
+        .getElementById("saveAcademicYearsButton")
+        ?.addEventListener("click", () => {
+            const button = document.getElementById(
+                "saveAcademicYearsButton",
+            ) as HTMLButtonElement;
+            void saveAcademicYears(button);
+        });
 }
 
 function bindClasses(): void {
-    document.getElementById("addClassRowButton")?.addEventListener("click", () => {
-        document.getElementById("classRows")?.insertAdjacentHTML("beforeend", classRowHtml());
-    });
-    document.getElementById("classRows")?.addEventListener("click", toggleDeleteRow);
-    document.getElementById("saveClassesButton")?.addEventListener("click", () => {
-        const button = document.getElementById("saveClassesButton") as HTMLButtonElement;
-        void saveClasses(button);
-    });
+    document
+        .getElementById("addClassRowButton")
+        ?.addEventListener("click", () => {
+            document
+                .getElementById("classRows")
+                ?.insertAdjacentHTML("beforeend", classRowHtml());
+        });
+    document
+        .getElementById("classRows")
+        ?.addEventListener("click", toggleDeleteRow);
+    document
+        .getElementById("saveClassesButton")
+        ?.addEventListener("click", () => {
+            const button = document.getElementById(
+                "saveClassesButton",
+            ) as HTMLButtonElement;
+            void saveClasses(button);
+        });
 }
 
 function bindStudents(): void {
-    document.getElementById("studentClassSelect")?.addEventListener("change", (event) => {
-        selectedStudentClassId = (event.target as HTMLSelectElement).value;
-        render();
-    });
-    document.getElementById("sampleStudentCsvButton")?.addEventListener("click", () => {
-        loadSampleStudentCsv();
-    });
-    document.getElementById("importStudentCsvButton")?.addEventListener("click", () => {
-        importStudentCsvToTable();
-    });
-    document.getElementById("addStudentRowButton")?.addEventListener("click", () => {
-        document.getElementById("studentRows")?.insertAdjacentHTML(
-            "beforeend",
-            studentRowHtml({
-                id: "",
-                classId: getSelectedStudentClassId(),
-                number: "",
-                studentCode: "",
-                fullName: "",
-                gender: "unknown",
-                status: "active",
-            }),
-        );
-    });
-    document.getElementById("studentRows")?.addEventListener("click", toggleDeleteRow);
-    document.getElementById("saveStudentsButton")?.addEventListener("click", () => {
-        const button = document.getElementById("saveStudentsButton") as HTMLButtonElement;
-        void saveStudents(button);
-    });
+    document
+        .getElementById("studentClassSelect")
+        ?.addEventListener("change", (event) => {
+            selectedStudentClassId = (event.target as HTMLSelectElement).value;
+            render();
+        });
+    document
+        .getElementById("sampleStudentCsvButton")
+        ?.addEventListener("click", () => {
+            loadSampleStudentCsv();
+        });
+    document
+        .getElementById("importStudentCsvButton")
+        ?.addEventListener("click", () => {
+            importStudentCsvToTable();
+        });
+    document
+        .getElementById("addStudentRowButton")
+        ?.addEventListener("click", () => {
+            document.getElementById("studentRows")?.insertAdjacentHTML(
+                "beforeend",
+                studentRowHtml({
+                    id: "",
+                    classId: getSelectedStudentClassId(),
+                    number: "",
+                    studentCode: "",
+                    fullName: "",
+                    gender: "unknown",
+                    status: "active",
+                }),
+            );
+        });
+    document
+        .getElementById("studentRows")
+        ?.addEventListener("click", toggleDeleteRow);
+    document
+        .getElementById("saveStudentsButton")
+        ?.addEventListener("click", () => {
+            const button = document.getElementById(
+                "saveStudentsButton",
+            ) as HTMLButtonElement;
+            void saveStudents(button);
+        });
 }
 
 function bindForceDelete(): void {
-    document.getElementById("forceDeleteStudentSearch")?.addEventListener("input", () => {
-        filterForceDeleteStudents();
-    });
-    document.getElementById("forceDeleteStudentRows")?.addEventListener("change", () => {
-        updateForceDeleteState();
-    });
-    document.getElementById("forceDeleteConfirmInput")?.addEventListener("input", () => {
-        updateForceDeleteState();
-    });
-    document.getElementById("forceDeleteStudentsButton")?.addEventListener("click", () => {
-        const button = document.getElementById("forceDeleteStudentsButton") as HTMLButtonElement;
-        void forceDeleteSelectedStudents(button);
-    });
+    document
+        .getElementById("forceDeleteStudentSearch")
+        ?.addEventListener("input", () => {
+            filterForceDeleteStudents();
+        });
+    document
+        .getElementById("forceDeleteStudentRows")
+        ?.addEventListener("change", () => {
+            updateForceDeleteState();
+        });
+    document
+        .getElementById("forceDeleteConfirmInput")
+        ?.addEventListener("input", () => {
+            updateForceDeleteState();
+        });
+    document
+        .getElementById("forceDeleteStudentsButton")
+        ?.addEventListener("click", () => {
+            const button = document.getElementById(
+                "forceDeleteStudentsButton",
+            ) as HTMLButtonElement;
+            void forceDeleteSelectedStudents(button);
+        });
     updateForceDeleteState();
 }
 
 function filterForceDeleteStudents(): void {
     const query = normalizeSearchText(
-        (document.getElementById("forceDeleteStudentSearch") as HTMLInputElement | null)?.value ?? "",
+        (
+            document.getElementById(
+                "forceDeleteStudentSearch",
+            ) as HTMLInputElement | null
+        )?.value ?? "",
     );
-    document.querySelectorAll<HTMLTableRowElement>("[data-force-delete-row]").forEach((row) => {
-        const searchableText = row.dataset.search ?? "";
-        row.classList.toggle("hidden", query.length > 0 && !searchableText.includes(query));
-    });
+    document
+        .querySelectorAll<HTMLTableRowElement>("[data-force-delete-row]")
+        .forEach((row) => {
+            const searchableText = row.dataset.search ?? "";
+            row.classList.toggle(
+                "hidden",
+                query.length > 0 && !searchableText.includes(query),
+            );
+        });
 }
 
 function updateForceDeleteState(): void {
     const selectedCount = selectedForceDeleteStudentIds().length;
     const confirmText =
-        (document.getElementById("forceDeleteConfirmInput") as HTMLInputElement | null)
-            ?.value.trim() ?? "";
+        (
+            document.getElementById(
+                "forceDeleteConfirmInput",
+            ) as HTMLInputElement | null
+        )?.value.trim() ?? "";
     const countLabel = document.getElementById("forceDeleteSelectedCount");
     if (countLabel) {
         countLabel.textContent = `เลือกแล้ว ${selectedCount} คน`;
     }
-    const button = document.getElementById("forceDeleteStudentsButton") as HTMLButtonElement | null;
+    const button = document.getElementById(
+        "forceDeleteStudentsButton",
+    ) as HTMLButtonElement | null;
     if (button) {
         button.disabled =
             selectedCount === 0 || confirmText !== forceDeleteConfirmText;
     }
 }
 
-async function forceDeleteSelectedStudents(button: HTMLButtonElement): Promise<void> {
+async function forceDeleteSelectedStudents(
+    button: HTMLButtonElement,
+): Promise<void> {
     const studentIds = selectedForceDeleteStudentIds();
     const confirmText =
-        (document.getElementById("forceDeleteConfirmInput") as HTMLInputElement | null)
-            ?.value.trim() ?? "";
+        (
+            document.getElementById(
+                "forceDeleteConfirmInput",
+            ) as HTMLInputElement | null
+        )?.value.trim() ?? "";
     if (studentIds.length === 0) {
         showNotice("adminNotice", "กรุณาเลือกนักเรียนที่ต้องการลบ", "error");
         return;
     }
     if (confirmText !== forceDeleteConfirmText) {
-        showNotice("adminNotice", `กรุณาพิมพ์ ${forceDeleteConfirmText} ให้ถูกต้อง`, "error");
+        showNotice(
+            "adminNotice",
+            `กรุณาพิมพ์ ${forceDeleteConfirmText} ให้ถูกต้อง`,
+            "error",
+        );
         return;
     }
     const confirmed = window.confirm(
@@ -533,7 +622,10 @@ async function forceDeleteSelectedStudents(button: HTMLButtonElement): Promise<v
             studentIds,
             confirmText,
         });
-        state = await googleScriptRun("getAdminBootstrap", token);
+        const deletedIds = new Set(studentIds);
+        state.students = state.students.filter(
+            (student) => !deletedIds.has(student.id),
+        );
         render();
         showNotice(
             "adminNotice",
@@ -550,7 +642,9 @@ async function forceDeleteSelectedStudents(button: HTMLButtonElement): Promise<v
 
 function selectedForceDeleteStudentIds(): string[] {
     return Array.from(
-        document.querySelectorAll<HTMLInputElement>("[data-force-delete-student]:checked"),
+        document.querySelectorAll<HTMLInputElement>(
+            "[data-force-delete-student]:checked",
+        ),
     ).map((input) => input.value);
 }
 
@@ -586,11 +680,15 @@ function setRowDeleteMarked(row: HTMLTableRowElement, marked: boolean): void {
     }
     row.classList.toggle("bg-red-50", marked);
     row.classList.toggle("text-slate-500", marked);
-    row.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select").forEach((field) => {
+    row.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+        "input, select",
+    ).forEach((field) => {
         field.disabled = marked;
         field.classList.toggle("bg-red-50", marked);
     });
-    const button = row.querySelector<HTMLButtonElement>("[data-toggle-delete-row]");
+    const button = row.querySelector<HTMLButtonElement>(
+        "[data-toggle-delete-row]",
+    );
     if (button) {
         button.textContent = marked ? "ยกเลิก" : "ลบ";
         button.classList.toggle("bg-red-50", !marked);
@@ -598,7 +696,10 @@ function setRowDeleteMarked(row: HTMLTableRowElement, marked: boolean): void {
         button.classList.toggle("bg-slate-100", marked);
         button.classList.toggle("text-slate-700", marked);
     }
-    row.querySelector<HTMLElement>("[data-delete-hint]")?.classList.toggle("hidden", !marked);
+    row.querySelector<HTMLElement>("[data-delete-hint]")?.classList.toggle(
+        "hidden",
+        !marked,
+    );
 }
 
 function isRowMarkedForDelete(row: HTMLTableRowElement): boolean {
@@ -606,9 +707,9 @@ function isRowMarkedForDelete(row: HTMLTableRowElement): boolean {
 }
 
 function activeTableRows(selector: string): HTMLTableRowElement[] {
-    return Array.from(document.querySelectorAll<HTMLTableRowElement>(selector)).filter(
-        (row) => !isRowMarkedForDelete(row),
-    );
+    return Array.from(
+        document.querySelectorAll<HTMLTableRowElement>(selector),
+    ).filter((row) => !isRowMarkedForDelete(row));
 }
 
 function hasActiveCurrentAcademicYearSelection(): boolean {
@@ -628,15 +729,18 @@ function ensureAcademicYearSelection(preferredRow?: HTMLTableRowElement): void {
     );
     const fallbackRadio =
         preferredRadio ??
-        activeTableRows("#academicYearRows tr")[0]?.querySelector<HTMLInputElement>(
-            '[name="currentAcademicYear"]',
-        );
+        activeTableRows(
+            "#academicYearRows tr",
+        )[0]?.querySelector<HTMLInputElement>('[name="currentAcademicYear"]');
     if (fallbackRadio) {
         fallbackRadio.checked = true;
     }
 }
 
-async function saveSettings(form: HTMLFormElement, button: HTMLButtonElement): Promise<void> {
+async function saveSettings(
+    form: HTMLFormElement,
+    button: HTMLButtonElement,
+): Promise<void> {
     const data = new FormData(form);
     setBusy(button, true, "กำลังบันทึก...");
     try {
@@ -658,11 +762,10 @@ async function saveAcademicYears(button: HTMLButtonElement): Promise<void> {
     setBusy(button, true, "กำลังบันทึก...");
     try {
         const { academicYears, currentYearKey } = readAcademicYearRows();
-        state.config = await googleScriptRun("saveAcademicYears", token, {
+        state = await googleScriptRun("saveAcademicYears", token, {
             academicYears,
             currentYearKey,
         });
-        state = await googleScriptRun("getAdminBootstrap", token);
         render();
         showNotice("adminNotice", "บันทึกปีการศึกษาเรียบร้อย", "ok");
     } catch (error) {
@@ -681,7 +784,6 @@ async function saveClasses(button: HTMLButtonElement): Promise<void> {
             room: fieldValue(row, "room"),
         }));
         state.classes = await googleScriptRun("saveClasses", token, rows);
-        state.students = await googleScriptRun("listStudents", token);
         render();
         showNotice("adminNotice", "บันทึกห้องเรียนเรียบร้อย", "ok");
     } catch (error) {
@@ -698,12 +800,18 @@ async function saveStudents(button: HTMLButtonElement): Promise<void> {
         const selectedClassRows = readStudentRowsFromTable(selectedClassId);
         validateStudentRowsBeforeSave(selectedClassRows);
         const rows = [
-            ...state.students.filter((student) => student.classId !== selectedClassId),
+            ...state.students.filter(
+                (student) => student.classId !== selectedClassId,
+            ),
             ...selectedClassRows,
         ];
         state.students = await googleScriptRun("saveStudents", token, rows);
         render();
-        showNotice("adminNotice", "บันทึกรายชื่อนักเรียนห้องนี้เรียบร้อย", "ok");
+        showNotice(
+            "adminNotice",
+            "บันทึกรายชื่อนักเรียนห้องนี้เรียบร้อย",
+            "ok",
+        );
     } catch (error) {
         showNotice("adminNotice", messageText(error), "error");
     } finally {
@@ -722,9 +830,7 @@ function readAcademicYearRows(): {
     academicYears: AcademicYear[];
     currentYearKey: string;
 } {
-    const rows = Array.from(
-        activeTableRows("#academicYearRows tr"),
-    );
+    const rows = Array.from(activeTableRows("#academicYearRows tr"));
     if (rows.length === 0) {
         throw new Error("ต้องมีปีการศึกษา/เทอมอย่างน้อย 1 รายการ");
     }
@@ -749,7 +855,9 @@ function readAcademicYearRows(): {
     };
 }
 
-function readStudentRowsFromTable(classId = getSelectedStudentClassId()): Student[] {
+function readStudentRowsFromTable(
+    classId = getSelectedStudentClassId(),
+): Student[] {
     return activeTableRows("#studentRows tr")
         .map((row) => ({
             id: row.dataset.id ?? "",
@@ -766,13 +874,17 @@ function readStudentRowsFromTable(classId = getSelectedStudentClassId()): Studen
 function validateStudentRowsBeforeSave(rows: Student[]): void {
     rows.forEach((student) => {
         if (student.gender === "unknown") {
-            throw new Error(`กรุณาเลือกเพศของนักเรียนเลขที่ ${student.number || "-"}`);
+            throw new Error(
+                `กรุณาเลือกเพศของนักเรียนเลขที่ ${student.number || "-"}`,
+            );
         }
     });
 }
 
 function loadSampleStudentCsv(): void {
-    const textarea = document.getElementById("studentCsvInput") as HTMLTextAreaElement;
+    const textarea = document.getElementById(
+        "studentCsvInput",
+    ) as HTMLTextAreaElement;
     textarea.value = [
         [...studentCsvHeaders],
         ["1", "10001", "เด็กชายตัวอย่าง นักเรียน", "male"],
@@ -780,20 +892,32 @@ function loadSampleStudentCsv(): void {
     ]
         .map((row) => row.map(escapeCsvCell).join(","))
         .join("\n");
-    showNotice("adminNotice", "ใส่ตัวอย่าง CSV แล้ว แก้ข้อมูลแล้วกดนำเข้า CSV", "info");
+    showNotice(
+        "adminNotice",
+        "ใส่ตัวอย่าง CSV แล้ว แก้ข้อมูลแล้วกดนำเข้า CSV",
+        "info",
+    );
 }
 
 function importStudentCsvToTable(): void {
     try {
-        const textarea = document.getElementById("studentCsvInput") as HTMLTextAreaElement;
+        const textarea = document.getElementById(
+            "studentCsvInput",
+        ) as HTMLTextAreaElement;
         const selectedClassId = getSelectedStudentClassId();
         const students = parseStudentsCsv(textarea.value, selectedClassId);
-        validateStudentCsvImport(students, readStudentRowsFromTable(selectedClassId));
+        validateStudentCsvImport(
+            students,
+            readStudentRowsFromTable(selectedClassId),
+        );
         const tbody = document.getElementById("studentRows");
         if (!tbody) {
             return;
         }
-        tbody.insertAdjacentHTML("beforeend", students.map(studentRowHtml).join(""));
+        tbody.insertAdjacentHTML(
+            "beforeend",
+            students.map(studentRowHtml).join(""),
+        );
         textarea.value = "";
         showNotice(
             "adminNotice",
@@ -817,7 +941,9 @@ function parseStudentsCsv(csvText: string, classId: string): Student[] {
         const number = csvCell(row, headerIndexes.number);
         const studentCode = csvCell(row, headerIndexes.studentCode);
         const fullName = csvCell(row, headerIndexes.fullName);
-        const gender = normalizeStudentGender(csvCell(row, headerIndexes.gender));
+        const gender = normalizeStudentGender(
+            csvCell(row, headerIndexes.gender),
+        );
         return {
             id: "",
             classId,
@@ -830,27 +956,38 @@ function parseStudentsCsv(csvText: string, classId: string): Student[] {
     });
 }
 
-function csvHeaderIndexes(headerRow: string[]): Record<(typeof studentCsvHeaders)[number], number> {
+function csvHeaderIndexes(
+    headerRow: string[],
+): Record<(typeof studentCsvHeaders)[number], number> {
     const normalized = headerRow.map((cell) => cell.trim());
     const indexes = Object.fromEntries(
         studentCsvHeaders.map((header) => [header, normalized.indexOf(header)]),
     ) as Record<(typeof studentCsvHeaders)[number], number>;
-    const missingHeaders = studentCsvHeaders.filter((header) => indexes[header] < 0);
+    const missingHeaders = studentCsvHeaders.filter(
+        (header) => indexes[header] < 0,
+    );
     if (missingHeaders.length > 0) {
         throw new Error(`CSV ต้องมีหัวคอลัมน์: ${missingHeaders.join(", ")}`);
     }
     return indexes;
 }
 
-function validateStudentCsvImport(importRows: Student[], currentRows: Student[]): void {
+function validateStudentCsvImport(
+    importRows: Student[],
+    currentRows: Student[],
+): void {
     const existingClassNumbers = new Set<string>();
     const existingCodes = new Set<string>();
-    currentRows.filter((student) => !isEmptyStudentRow(student)).forEach((student) => {
-        existingClassNumbers.add(classNumberKey(student.classId, student.number));
-        if (student.studentCode) {
-            existingCodes.add(student.studentCode);
-        }
-    });
+    currentRows
+        .filter((student) => !isEmptyStudentRow(student))
+        .forEach((student) => {
+            existingClassNumbers.add(
+                classNumberKey(student.classId, student.number),
+            );
+            if (student.studentCode) {
+                existingCodes.add(student.studentCode);
+            }
+        });
     const importClassNumbers = new Set<string>();
     const importCodes = new Set<string>();
     importRows.forEach((student, index) => {
@@ -871,7 +1008,9 @@ function validateStudentCsvImport(importRows: Student[], currentRows: Student[])
             );
         }
         if (importClassNumbers.has(classNumber)) {
-            throw new Error(`CSV มีเลขที่ซ้ำในห้องเดียวกันที่บรรทัด ${lineNumber}`);
+            throw new Error(
+                `CSV มีเลขที่ซ้ำในห้องเดียวกันที่บรรทัด ${lineNumber}`,
+            );
         }
         importClassNumbers.add(classNumber);
         if (student.studentCode) {

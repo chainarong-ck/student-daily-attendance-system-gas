@@ -1,5 +1,4 @@
 import type {
-    AcademicYear,
     AdminBootstrap,
     AttendanceClassSession,
     AttendanceOverview,
@@ -36,21 +35,11 @@ declare global {
                 adminToken: string,
                 payload: SaveSystemSettingsPayload,
             ): SystemConfig;
-            addAcademicYear(
-                adminToken: string,
-                payload: AcademicYear,
-            ): SystemConfig;
             saveAcademicYears(
                 adminToken: string,
                 payload: SaveAcademicYearsPayload,
-            ): SystemConfig;
-            setCurrentAcademicYear(
-                adminToken: string,
-                academicYearKey: string,
-            ): SystemConfig;
-            listClasses(adminToken: string): ClassRoom[];
+            ): AdminBootstrap;
             saveClasses(adminToken: string, rows: ClassRoom[]): ClassRoom[];
-            listStudents(adminToken: string, classId?: string): Student[];
             saveStudents(adminToken: string, rows: Student[]): Student[];
             forceDeleteStudents(
                 adminToken: string,
@@ -69,7 +58,10 @@ declare global {
                 token: string,
                 payload: SaveAttendancePayload,
             ): SaveAttendanceResult;
-            getAttendanceOverview(token: string, date: string): AttendanceOverview;
+            getAttendanceOverview(
+                token: string,
+                date: string,
+            ): AttendanceOverview;
             getAttendanceStats(
                 token: string,
                 filters: AttendanceStatsFilters,

@@ -32,7 +32,10 @@ export function webAppUrl(page?: string): string {
     return page ? `${base}?page=${encodeURIComponent(page)}` : base;
 }
 
-export function navigateTo(page: string, params?: Record<string, string>): void {
+export function navigateTo(
+    page: string,
+    params?: Record<string, string>,
+): void {
     const url = new URL(webAppUrl(page));
     Object.entries(params ?? {}).forEach(([key, value]) => {
         url.searchParams.set(key, value);
@@ -72,29 +75,37 @@ export function showLoginRequired(role: AuthRole, message?: string): void {
 }
 
 export function bindShellActions(): void {
-    document.querySelectorAll<HTMLButtonElement>("[data-nav-page]").forEach((button) => {
-        button.addEventListener("click", () => {
-            const page = button.dataset.navPage;
-            if (page) {
-                navigateTo(page);
-            }
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-nav-page]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                const page = button.dataset.navPage;
+                if (page) {
+                    navigateTo(page);
+                }
+            });
         });
-    });
     document
         .querySelectorAll<HTMLButtonElement>("[data-logout-role]")
         .forEach((button) => {
             button.addEventListener("click", () => {
-                const role = button.dataset.logoutRole === "admin" ? "admin" : "app";
+                const role =
+                    button.dataset.logoutRole === "admin" ? "admin" : "app";
                 localStorage.removeItem(APP_TOKEN_KEY);
                 localStorage.removeItem(ADMIN_TOKEN_KEY);
-                navigateTo("Login", role === "admin" ? { role: "admin" } : undefined);
+                navigateTo(
+                    "Login",
+                    role === "admin" ? { role: "admin" } : undefined,
+                );
             });
         });
-    document.querySelectorAll<HTMLButtonElement>("[data-close-notice]").forEach((button) => {
-        button.addEventListener("click", () => {
-            button.closest("[data-notice]")?.classList.add("hidden");
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-close-notice]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                button.closest("[data-notice]")?.classList.add("hidden");
+            });
         });
-    });
 }
 
 export function todayText(): string {
@@ -121,7 +132,11 @@ export function messageText(error: unknown): string {
     return String(error || "เกิดข้อผิดพลาด");
 }
 
-export function setBusy(button: HTMLButtonElement, busy: boolean, label?: string): void {
+export function setBusy(
+    button: HTMLButtonElement,
+    busy: boolean,
+    label?: string,
+): void {
     if (busy) {
         button.dataset.label = button.textContent ?? "";
         button.disabled = true;
@@ -136,7 +151,11 @@ export function footerHtml(): string {
     return `<footer class="mt-10 rounded-lg border border-white/70 bg-white/70 px-4 py-5 text-center text-sm text-slate-500 shadow-sm">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย นายชัยณรงค์ คงพล | GitHub: <a href="https://github.com/chainarong-ck" target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-700 hover:text-orange-600">Chainarong-CK</a></footer>`;
 }
 
-export function shellHtml(title: string, body: string, options: ShellOptions): string {
+export function shellHtml(
+    title: string,
+    body: string,
+    options: ShellOptions,
+): string {
     return `
         <main class="min-h-screen bg-[linear-gradient(135deg,#f8fbff_0%,#eefdf6_42%,#fff7ed_100%)] text-slate-900">
             <section class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -160,7 +179,11 @@ export function shellHtml(title: string, body: string, options: ShellOptions): s
         </main>`;
 }
 
-function navButton(page: AppPages, label: string, options: ShellOptions): string {
+function navButton(
+    page: AppPages,
+    label: string,
+    options: ShellOptions,
+): string {
     if (page === "Index" && options.showIndexLink === false) {
         return "";
     }
@@ -185,7 +208,11 @@ export function noticeHtml(id: string): string {
     return `<div id="${id}" data-notice class="mb-4 hidden rounded-md border px-4 py-3 text-sm shadow-sm"><div class="flex items-start justify-between gap-3"><span data-notice-message></span><button type="button" data-close-notice class="rounded-lg px-2 font-bold opacity-70 hover:bg-white hover:opacity-100" aria-label="ปิดข้อความแจ้งเตือน">X</button></div></div>`;
 }
 
-export function showNotice(id: string, text: string, tone: "ok" | "error" | "info"): void {
+export function showNotice(
+    id: string,
+    text: string,
+    tone: "ok" | "error" | "info",
+): void {
     const element = document.getElementById(id);
     if (!element) {
         return;

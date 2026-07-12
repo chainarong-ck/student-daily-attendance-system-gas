@@ -8,6 +8,8 @@ type TokenPayload = {
     exp: number;
 };
 
+type AuthHashes = ReturnType<typeof MainConfig.getAuthHashes>;
+
 export class AuthService {
     static hashPassword(password: string): string {
         const clean = password.trim();
@@ -17,12 +19,13 @@ export class AuthService {
 
     static login(role: AuthRole, password: string): LoginResult {
         MainConfig.requireInitialized();
-        const expected = MainConfig.getPasswordHash(role);
+        const hashes = MainConfig.getAuthHashes();
+        const expected = hashes[role];
         const actual = this.hashPassword(password);
         ServerUtils.assert(expected === actual, "รหัสผ่านไม่ถูกต้อง");
         const expiresAt = Date.now() + ServerConstant.LIMITS.tokenTtlMs;
         return {
-            token: this.issueToken(role, expiresAt),
+            token: this.issueToken(role, expiresAt, hashes),
             role,
             expiresAt,
         };
@@ -36,11 +39,15 @@ export class AuthService {
         this.verifyToken(token, "admin");
     }
 
-    private static issueToken(role: AuthRole, expiresAt: number): string {
+    private static issueToken(
+        role: AuthRole,
+        expiresAt: number,
+        hashes: AuthHashes,
+    ): string {
         const payload = Utilities.base64EncodeWebSafe(
             JSON.stringify({ role, exp: expiresAt } satisfies TokenPayload),
         ).replace(/=+$/g, "");
-        const signature = this.sign(payload);
+        const signature = this.sign(payload, hashes);
         return `${payload}.${signature}`;
     }
 
@@ -70,11 +77,12 @@ export class AuthService {
         }
     }
 
-    private static sign(payload: string): string {
+    private static sign(
+        payload: string,
+        hashes: AuthHashes = MainConfig.getAuthHashes(),
+    ): string {
         return ServerUtils.hashText(
-            `${payload}:${MainConfig.getPasswordHash("app")}:${MainConfig.getPasswordHash(
-                "admin",
-            )}`,
+            `${payload}:${hashes.app}:${hashes.admin}`,
         );
     }
 

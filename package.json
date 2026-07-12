@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "โปรเจกต์ Google Apps Script (Web App) สำหรับระบบบันทึกการเข้าเรียนรายวันของนักเรียน โดยใช้ Google Sheets เป็นแหล่งเก็บข้อมูล",
     "scripts": {
+        "typecheck": "tsc --noEmit",
         "build:client": "node scripts/build-client.mjs",
         "build:server": "node scripts/build-server.mjs",
         "copy:assets": "node scripts/copy-assets.mjs",
@@ -16,7 +17,7 @@
     },
     "keywords": [],
     "author": "นายชัยณรงค์ คงพล (Chainarong-CK) <https://github.com/chainarong-ck>",
-    "license": "ISC",
+    "license": "MIT",
     "type": "module",
     "bugs": {
         "url": "https://github.com/chainarong-ck/student-daily-attendance-system-gas/issues"

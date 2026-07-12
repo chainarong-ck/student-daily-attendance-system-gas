@@ -1,5 +1,4 @@
 import type {
-    AcademicYear,
     AdminBootstrap,
     AppPages,
     AttendanceClassSession,
@@ -50,7 +49,8 @@ export function doGet(
         WebAppUrl: string;
         PageTitle: string;
     };
-    template.WebAppUrl = ServerUtils.getWebAppUrl();
+    const webAppUrl = ServerUtils.getWebAppUrl();
+    template.WebAppUrl = webAppUrl;
     template.PageTitle =
         ServerConstant.APP_PAGES_TITLE[page] ??
         ServerConstant.APP_PAGES_TITLE.Index;
@@ -58,12 +58,12 @@ export function doGet(
         JSON.stringify({
             page,
             role: event?.parameter?.role === "admin" ? "admin" : "app",
-            webAppUrl: ServerUtils.getWebAppUrl(),
+            webAppUrl,
         }),
     );
     return template
         .evaluate()
-        .setTitle("ระบบเช็คชื่อนักเรียน")
+        .setTitle(template.PageTitle)
         .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
@@ -72,17 +72,23 @@ export function getPublicSystemState(): PublicSystemState {
 }
 
 export function setupSystem(payload: SetupPayload): PublicSystemState {
-    ServerUtils.assert(!MainConfig.isInitialized(), "ระบบถูกตั้งค่าแล้ว");
-    const normalizedYear = MainConfig.normalizeAcademicYear(payload.firstAcademicYear);
-    const appPasswordHash = AuthService.hashPassword(payload.appPassword);
-    const adminPasswordHash = AuthService.hashPassword(payload.adminPassword);
-    new SheetDatabase(normalizedYear).ensureSchema();
-    MainConfig.setup(
-        { ...payload, firstAcademicYear: normalizedYear },
-        appPasswordHash,
-        adminPasswordHash,
-    );
-    return MainConfig.getPublicState();
+    return ServerUtils.withScriptLock(() => {
+        ServerUtils.assert(!MainConfig.isInitialized(), "ระบบถูกตั้งค่าแล้ว");
+        const normalizedYear = MainConfig.normalizeAcademicYear(
+            payload.firstAcademicYear,
+        );
+        const appPasswordHash = AuthService.hashPassword(payload.appPassword);
+        const adminPasswordHash = AuthService.hashPassword(
+            payload.adminPassword,
+        );
+        new SheetDatabase(normalizedYear).ensureSchema();
+        MainConfig.setup(
+            { ...payload, firstAcademicYear: normalizedYear },
+            appPasswordHash,
+            adminPasswordHash,
+        );
+        return MainConfig.getPublicState();
+    });
 }
 
 export function loginApp(password: string): LoginResult {
@@ -95,18 +101,22 @@ export function loginAdmin(password: string): LoginResult {
 
 export function getIndexBootstrap(token: string): IndexBootstrap {
     AuthService.requireApp(token);
+    const database = AcademicYearService.ensureCurrentSheet();
+    database.ensureSchema();
     return {
         system: MainConfig.getPublicState(),
-        classes: ClassService.listClasses(),
+        classes: ClassService.listClasses(database),
     };
 }
 
 export function getAdminBootstrap(adminToken: string): AdminBootstrap {
     AuthService.requireAdmin(adminToken);
+    const database = AcademicYearService.ensureCurrentSheet();
+    database.ensureSchema();
     return {
         config: MainConfig.getConfig(),
-        classes: ClassService.listClasses(),
-        students: StudentService.listStudents(),
+        classes: ClassService.listClasses(database),
+        students: StudentService.listStudents(undefined, database),
     };
 }
 
@@ -115,57 +125,41 @@ export function saveSystemSettings(
     payload: SaveSystemSettingsPayload,
 ): SystemConfig {
     AuthService.requireAdmin(adminToken);
-    return MainConfig.saveSettings(
-        payload,
-        payload.appPassword ? AuthService.hashPassword(payload.appPassword) : undefined,
-        payload.adminPassword
-            ? AuthService.hashPassword(payload.adminPassword)
-            : undefined,
+    return ServerUtils.withScriptLock(() =>
+        MainConfig.saveSettings(
+            payload,
+            payload.appPassword
+                ? AuthService.hashPassword(payload.appPassword)
+                : undefined,
+            payload.adminPassword
+                ? AuthService.hashPassword(payload.adminPassword)
+                : undefined,
+        ),
     );
-}
-
-export function addAcademicYear(
-    adminToken: string,
-    payload: AcademicYear,
-): SystemConfig {
-    AuthService.requireAdmin(adminToken);
-    return AcademicYearService.addAcademicYear(payload);
 }
 
 export function saveAcademicYears(
     adminToken: string,
     payload: SaveAcademicYearsPayload,
-): SystemConfig {
+): AdminBootstrap {
     AuthService.requireAdmin(adminToken);
-    return AcademicYearService.saveAcademicYears(payload);
+    return ServerUtils.withScriptLock(() => {
+        AcademicYearService.saveAcademicYears(payload);
+        return getAdminBootstrap(adminToken);
+    });
 }
 
-export function setCurrentAcademicYear(
+export function saveClasses(
     adminToken: string,
-    academicYearKey: string,
-): SystemConfig {
+    rows: ClassRoom[],
+): ClassRoom[] {
     AuthService.requireAdmin(adminToken);
-    return AcademicYearService.setCurrentAcademicYear(academicYearKey);
-}
-
-export function listClasses(adminToken: string): ClassRoom[] {
-    AuthService.requireAdmin(adminToken);
-    return ClassService.listClasses();
-}
-
-export function saveClasses(adminToken: string, rows: ClassRoom[]): ClassRoom[] {
-    AuthService.requireAdmin(adminToken);
-    return ClassService.saveClasses(rows);
-}
-
-export function listStudents(adminToken: string, classId?: string): Student[] {
-    AuthService.requireAdmin(adminToken);
-    return StudentService.listStudents(classId);
+    return ServerUtils.withScriptLock(() => ClassService.saveClasses(rows));
 }
 
 export function saveStudents(adminToken: string, rows: Student[]): Student[] {
     AuthService.requireAdmin(adminToken);
-    return StudentService.saveStudents(rows);
+    return ServerUtils.withScriptLock(() => StudentService.saveStudents(rows));
 }
 
 export function forceDeleteStudents(
@@ -173,7 +167,9 @@ export function forceDeleteStudents(
     payload: ForceDeleteStudentsPayload,
 ): ForceDeleteStudentsResult {
     AuthService.requireAdmin(adminToken);
-    return StudentService.forceDeleteStudents(payload);
+    return ServerUtils.withScriptLock(() =>
+        StudentService.forceDeleteStudents(payload),
+    );
 }
 
 export function getAttendanceClassSession(

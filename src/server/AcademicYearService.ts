@@ -1,26 +1,14 @@
-import type {
-    AcademicYear,
-    SaveAcademicYearsPayload,
-    SystemConfig,
-} from "../shared/types";
+import type { SaveAcademicYearsPayload, SystemConfig } from "../shared/types";
 import { MainConfig } from "./MainConfig";
 import { ServerUtils } from "./ServerUtils";
 import { SheetDatabase } from "./SheetDatabase";
 
 export class AcademicYearService {
-    static addAcademicYear(input: AcademicYear): SystemConfig {
-        MainConfig.requireInitialized();
-        const year = MainConfig.normalizeAcademicYear(input);
-        const config = MainConfig.getConfig();
-        const years = [...config.academicYears, year];
-        MainConfig.validateAcademicYears(years);
-        new SheetDatabase(year).ensureSchema();
-        MainConfig.setAcademicYears(years);
-        return MainConfig.getConfig();
-    }
-
     static saveAcademicYears(payload: SaveAcademicYearsPayload): SystemConfig {
         MainConfig.requireInitialized();
+        const previousSheetIds = new Set(
+            MainConfig.getConfig().academicYears.map((year) => year.id),
+        );
         const years = payload.academicYears.map((year) =>
             MainConfig.normalizeAcademicYear(year),
         );
@@ -37,22 +25,15 @@ export class AcademicYearService {
             currentExists,
             "ปีการศึกษาปัจจุบันต้องเป็นรายการที่มีอยู่ในตาราง",
         );
-        years.forEach((year) => {
-            new SheetDatabase(year).ensureSchema();
-        });
-        MainConfig.setAcademicYears(years);
-        return MainConfig.setCurrentYear(currentYear);
-    }
-
-    static setCurrentAcademicYear(key: string): SystemConfig {
-        return MainConfig.setCurrentYear(this.parseAcademicYearKey(key));
+        years
+            .filter((year) => !previousSheetIds.has(year.id))
+            .forEach((year) => new SheetDatabase(year).ensureSchema());
+        return MainConfig.setAcademicYearsAndCurrent(years, currentYear);
     }
 
     static ensureCurrentSheet(): SheetDatabase {
         const year = MainConfig.getCurrentAcademicYear();
-        const database = new SheetDatabase(year);
-        database.ensureSchema();
-        return database;
+        return new SheetDatabase(year);
     }
 
     private static parseAcademicYearKey(key: string): { y: number; t: number } {

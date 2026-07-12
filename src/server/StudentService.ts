@@ -9,11 +9,15 @@ import { AcademicYearService } from "./AcademicYearService";
 import { ClassService } from "./ClassService";
 import { ServerConstant } from "./ServerConstant";
 import { ServerUtils } from "./ServerUtils";
+import { SheetDatabase } from "./SheetDatabase";
 
 export class StudentService {
-    static listStudents(classId?: string): Student[] {
+    static listStudents(
+        classId?: string,
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
+    ): Student[] {
         const filterClassId = ServerUtils.normalizeText(classId);
-        return AcademicYearService.ensureCurrentSheet()
+        return database
             .readObjects("Students")
             .map((row) => {
                 const status: StudentStatus =
@@ -29,13 +33,18 @@ export class StudentService {
                     gender,
                 };
             })
-            .filter((student) => !filterClassId || student.classId === filterClassId)
+            .filter(
+                (student) =>
+                    !filterClassId || student.classId === filterClassId,
+            )
             .sort((a, b) => Number(a.number) - Number(b.number));
     }
 
     static saveStudents(rows: Student[]): Student[] {
         const database = AcademicYearService.ensureCurrentSheet();
-        const classIds = new Set(ClassService.listClasses().map((row) => row.id));
+        const classIds = new Set(
+            ClassService.listClasses(database).map((row) => row.id),
+        );
         const existingStudents = database.readObjects("Students");
         const existingClassByStudent = new Map(
             existingStudents.map((row) => [row.id, row.classId]),
@@ -50,9 +59,8 @@ export class StudentService {
             .map((row) => {
                 const status: StudentStatus =
                     row.status === "leave" ? "leave" : "active";
-                const gender: StudentGender = ServerUtils.normalizeStudentGender(
-                    row.gender,
-                );
+                const gender: StudentGender =
+                    ServerUtils.normalizeStudentGender(row.gender);
                 return {
                     id:
                         ServerUtils.normalizeText(row.id) ||
@@ -82,9 +90,15 @@ export class StudentService {
         for (const row of normalized) {
             ServerUtils.assert(!ids.has(row.id), "รหัสนักเรียนซ้ำ");
             ids.add(row.id);
-            ServerUtils.assert(classIds.has(row.classId), "ห้องเรียนของนักเรียนไม่ถูกต้อง");
+            ServerUtils.assert(
+                classIds.has(row.classId),
+                "ห้องเรียนของนักเรียนไม่ถูกต้อง",
+            );
             ServerUtils.assert(row.number.length > 0, "ต้องระบุเลขที่นักเรียน");
-            ServerUtils.assert(row.fullName.length > 0, "ต้องระบุชื่อ-สกุลนักเรียน");
+            ServerUtils.assert(
+                row.fullName.length > 0,
+                "ต้องระบุชื่อ-สกุลนักเรียน",
+            );
             ServerUtils.assert(
                 ServerConstant.STUDENT_STATUSES.includes(row.status),
                 "สถานะนักเรียนไม่ถูกต้อง",
@@ -94,10 +108,16 @@ export class StudentService {
                 "เพศนักเรียนไม่ถูกต้อง",
             );
             const numberKey = `${row.classId}:${row.number}`;
-            ServerUtils.assert(!numbers.has(numberKey), "เลขที่นักเรียนในห้องเดียวกันห้ามซ้ำ");
+            ServerUtils.assert(
+                !numbers.has(numberKey),
+                "เลขที่นักเรียนในห้องเดียวกันห้ามซ้ำ",
+            );
             numbers.add(numberKey);
             if (row.studentCode) {
-                ServerUtils.assert(!codes.has(row.studentCode), "รหัสนักเรียนห้ามซ้ำ");
+                ServerUtils.assert(
+                    !codes.has(row.studentCode),
+                    "รหัสนักเรียนห้ามซ้ำ",
+                );
                 codes.add(row.studentCode);
             }
             const existingClassId = existingClassByStudent.get(row.id);
@@ -119,7 +139,7 @@ export class StudentService {
             "ไม่สามารถลบนักเรียนที่มีประวัติเช็คชื่อแล้วได้ กรุณาเปลี่ยนสถานะเป็นออก/พักเรียนแทน",
         );
         database.writeObjects("Students", normalized);
-        return this.listStudents();
+        return normalized.sort((a, b) => Number(a.number) - Number(b.number));
     }
 
     static forceDeleteStudents(
@@ -136,7 +156,10 @@ export class StudentService {
             ServerUtils.normalizeText(payload?.confirmText) === "ลบถาวร",
             "กรุณาพิมพ์คำยืนยันให้ถูกต้องก่อนบังคับลบ",
         );
-        ServerUtils.assert(studentIds.length > 0, "กรุณาเลือกนักเรียนที่ต้องการลบ");
+        ServerUtils.assert(
+            studentIds.length > 0,
+            "กรุณาเลือกนักเรียนที่ต้องการลบ",
+        );
         ServerUtils.assert(
             studentIds.length <= 50,
             "บังคับลบนักเรียนได้ครั้งละไม่เกิน 50 คน",
@@ -145,13 +168,20 @@ export class StudentService {
         const database = AcademicYearService.ensureCurrentSheet();
         const deleteIds = new Set(studentIds);
         const students = database.readObjects("Students");
-        const existingStudentIds = new Set(students.map((student) => student.id));
+        const existingStudentIds = new Set(
+            students.map((student) => student.id),
+        );
         const missingStudentId = studentIds.find(
             (studentId) => !existingStudentIds.has(studentId),
         );
-        ServerUtils.assert(!missingStudentId, "พบนักเรียนที่ไม่มีอยู่ในระบบแล้ว");
+        ServerUtils.assert(
+            !missingStudentId,
+            "พบนักเรียนที่ไม่มีอยู่ในระบบแล้ว",
+        );
 
-        const remainingStudents = students.filter((student) => !deleteIds.has(student.id));
+        const remainingStudents = students.filter(
+            (student) => !deleteIds.has(student.id),
+        );
         const deletedStudents = students.length - remainingStudents.length;
         ServerUtils.assert(deletedStudents > 0, "ไม่พบนักเรียนที่ต้องการลบ");
 

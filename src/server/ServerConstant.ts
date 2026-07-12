@@ -33,21 +33,27 @@ export class ServerConstant {
         tokenTtlMs: 7 * 24 * 60 * 60 * 1000,
     } as const;
 
-    static readonly SHEETS = {
-        classes: "Classes",
-        students: "Students",
-        attendance: "Attendance",
-    } as const;
-
     static readonly HEADERS = {
         Classes: ["id", "grade", "room"],
-        Students: ["id", "classId", "number", "studentCode", "fullName", "status", "gender"],
+        Students: [
+            "id",
+            "classId",
+            "number",
+            "studentCode",
+            "fullName",
+            "status",
+            "gender",
+        ],
         Attendance: ["id", "date", "classId", "studentId", "status"],
     } as const;
 
     static readonly STUDENT_STATUSES: StudentStatus[] = ["active", "leave"];
 
-    static readonly STUDENT_GENDERS: StudentGender[] = ["male", "female", "unknown"];
+    static readonly STUDENT_GENDERS: StudentGender[] = [
+        "male",
+        "female",
+        "unknown",
+    ];
 
     static readonly ATTENDANCE_STATUSES: AttendanceStatus[] = [
         "present",

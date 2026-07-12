@@ -2,24 +2,34 @@ import type { ClassRoom } from "../shared/types";
 import { AcademicYearService } from "./AcademicYearService";
 import { ServerConstant } from "./ServerConstant";
 import { ServerUtils } from "./ServerUtils";
+import { SheetDatabase } from "./SheetDatabase";
 
 export class ClassService {
-    static listClasses(): ClassRoom[] {
-        return AcademicYearService.ensureCurrentSheet()
+    static listClasses(
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
+    ): ClassRoom[] {
+        return database
             .readObjects("Classes")
             .map((row) => ({
                 id: row.id,
                 grade: row.grade,
                 room: row.room,
             }))
-            .sort((a, b) => `${a.grade}/${a.room}`.localeCompare(`${b.grade}/${b.room}`, "th"));
+            .sort((a, b) =>
+                `${a.grade}/${a.room}`.localeCompare(
+                    `${b.grade}/${b.room}`,
+                    "th",
+                ),
+            );
     }
 
     static saveClasses(rows: ClassRoom[]): ClassRoom[] {
         const database = AcademicYearService.ensureCurrentSheet();
         const normalized = rows
             .map((row) => ({
-                id: ServerUtils.normalizeText(row.id) || ServerUtils.createShortId("c"),
+                id:
+                    ServerUtils.normalizeText(row.id) ||
+                    ServerUtils.createShortId("c"),
                 grade: ServerUtils.normalizeText(row.grade),
                 room: ServerUtils.normalizeText(row.room),
             }))
@@ -48,6 +58,12 @@ export class ClassService {
             "ไม่สามารถลบห้องเรียนที่ยังมีนักเรียนอยู่ได้ กรุณาย้ายนักเรียนหรือลบนักเรียนก่อน",
         );
         database.writeObjects("Classes", normalized);
-        return this.listClasses();
+        return this.sortClasses(normalized);
+    }
+
+    private static sortClasses(rows: ClassRoom[]): ClassRoom[] {
+        return rows.sort((a, b) =>
+            `${a.grade}/${a.room}`.localeCompare(`${b.grade}/${b.room}`, "th"),
+        );
     }
 }

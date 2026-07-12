@@ -52,12 +52,15 @@ function renderLogin(): void {
     );
     bindShellActions();
 
-    document.querySelectorAll<HTMLButtonElement>("[data-login-role]").forEach((button) => {
-        button.addEventListener("click", () => {
-            selectedRole = button.dataset.loginRole === "admin" ? "admin" : "app";
-            renderLogin();
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-login-role]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                selectedRole =
+                    button.dataset.loginRole === "admin" ? "admin" : "app";
+                renderLogin();
+            });
         });
-    });
     const form = document.getElementById("loginForm") as HTMLFormElement;
     const button = document.getElementById("loginButton") as HTMLButtonElement;
     form.addEventListener("submit", (event) => {
@@ -78,7 +81,10 @@ async function login(
             role === "admin"
                 ? await googleScriptRun("loginAdmin", password)
                 : await googleScriptRun("loginApp", password);
-        localStorage.setItem(role === "admin" ? ADMIN_TOKEN_KEY : APP_TOKEN_KEY, result.token);
+        localStorage.setItem(
+            role === "admin" ? ADMIN_TOKEN_KEY : APP_TOKEN_KEY,
+            result.token,
+        );
         showNotice("loginNotice", "เข้าสู่ระบบสำเร็จ", "ok");
         navigateTo(role === "admin" ? "Admin" : "Index");
     } catch (error) {

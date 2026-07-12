@@ -11,33 +11,23 @@ import { ServerUtils } from "./ServerUtils";
 
 export class MainConfig {
     static isInitialized(): boolean {
-        return this.properties().getProperty(
-            ServerConstant.PROPERTY_KEYS.initialized,
-        ) === "true";
+        return (
+            this.properties().getProperty(
+                ServerConstant.PROPERTY_KEYS.initialized,
+            ) === "true"
+        );
     }
 
     static getConfig(): SystemConfig {
-        const properties = this.properties();
-        const academicYears = ServerUtils.parseJson<AcademicYear[]>(
-            properties.getProperty(ServerConstant.PROPERTY_KEYS.academicYears),
-            [],
-        );
-        const currentYear = ServerUtils.parseJson<CurrentYearRef | null>(
-            properties.getProperty(ServerConstant.PROPERTY_KEYS.currentYear),
-            null,
-        );
-        return {
-            schoolName:
-                properties.getProperty(ServerConstant.PROPERTY_KEYS.schoolName) ?? "",
-            academicYears,
-            currentYear,
-        };
+        return this.configFromProperties(this.properties().getProperties());
     }
 
     static getPublicState(): PublicSystemState {
-        const config = this.getConfig();
+        const properties = this.properties().getProperties();
+        const config = this.configFromProperties(properties);
         return {
-            initialized: this.isInitialized(),
+            initialized:
+                properties[ServerConstant.PROPERTY_KEYS.initialized] === "true",
             schoolName: config.schoolName,
             currentYear: ServerUtils.findAcademicYear(
                 config.academicYears,
@@ -46,7 +36,30 @@ export class MainConfig {
         };
     }
 
-    static setup(payload: SetupPayload, appPasswordHash: string, adminPasswordHash: string): void {
+    private static configFromProperties(
+        properties: Record<string, string>,
+    ): SystemConfig {
+        const academicYears = ServerUtils.parseJson<AcademicYear[]>(
+            properties[ServerConstant.PROPERTY_KEYS.academicYears] ?? null,
+            [],
+        );
+        const currentYear = ServerUtils.parseJson<CurrentYearRef | null>(
+            properties[ServerConstant.PROPERTY_KEYS.currentYear] ?? null,
+            null,
+        );
+        return {
+            schoolName:
+                properties[ServerConstant.PROPERTY_KEYS.schoolName] ?? "",
+            academicYears,
+            currentYear,
+        };
+    }
+
+    static setup(
+        payload: SetupPayload,
+        appPasswordHash: string,
+        adminPasswordHash: string,
+    ): void {
         ServerUtils.assert(!this.isInitialized(), "ระบบถูกตั้งค่าแล้ว");
         const year = this.normalizeAcademicYear(payload.firstAcademicYear);
         this.validateSchoolName(payload.schoolName);
@@ -56,16 +69,18 @@ export class MainConfig {
 
         this.properties().setProperties(
             {
-                [ServerConstant.PROPERTY_KEYS.schoolName]: payload.schoolName.trim(),
+                [ServerConstant.PROPERTY_KEYS.schoolName]:
+                    payload.schoolName.trim(),
                 [ServerConstant.PROPERTY_KEYS.appPasswordHash]: appPasswordHash,
-                [ServerConstant.PROPERTY_KEYS.adminPasswordHash]: adminPasswordHash,
-                [ServerConstant.PROPERTY_KEYS.academicYears]: ServerUtils.stringifyJson([
-                    year,
-                ]),
-                [ServerConstant.PROPERTY_KEYS.currentYear]: ServerUtils.stringifyJson({
-                    y: year.y,
-                    t: year.t,
-                }),
+                [ServerConstant.PROPERTY_KEYS.adminPasswordHash]:
+                    adminPasswordHash,
+                [ServerConstant.PROPERTY_KEYS.academicYears]:
+                    ServerUtils.stringifyJson([year]),
+                [ServerConstant.PROPERTY_KEYS.currentYear]:
+                    ServerUtils.stringifyJson({
+                        y: year.y,
+                        t: year.t,
+                    }),
                 [ServerConstant.PROPERTY_KEYS.initialized]: "true",
             },
             false,
@@ -80,15 +95,18 @@ export class MainConfig {
         this.requireInitialized();
         this.validateSchoolName(payload.schoolName);
         const values: Record<string, string> = {
-            [ServerConstant.PROPERTY_KEYS.schoolName]: payload.schoolName.trim(),
+            [ServerConstant.PROPERTY_KEYS.schoolName]:
+                payload.schoolName.trim(),
         };
         if (appPasswordHash) {
             this.validateHash(appPasswordHash, "รหัสผ่านครู");
-            values[ServerConstant.PROPERTY_KEYS.appPasswordHash] = appPasswordHash;
+            values[ServerConstant.PROPERTY_KEYS.appPasswordHash] =
+                appPasswordHash;
         }
         if (adminPasswordHash) {
             this.validateHash(adminPasswordHash, "รหัสผ่านผู้ดูแล");
-            values[ServerConstant.PROPERTY_KEYS.adminPasswordHash] = adminPasswordHash;
+            values[ServerConstant.PROPERTY_KEYS.adminPasswordHash] =
+                adminPasswordHash;
         }
         this.properties().setProperties(values, false);
         return this.getConfig();
@@ -102,23 +120,31 @@ export class MainConfig {
         return this.properties().getProperty(key) ?? "";
     }
 
-    static setAcademicYears(years: AcademicYear[]): void {
-        this.validateAcademicYears(years);
-        this.properties().setProperty(
-            ServerConstant.PROPERTY_KEYS.academicYears,
-            ServerUtils.stringifyJson(years),
-        );
+    static getAuthHashes(): { app: string; admin: string } {
+        const values = this.properties().getProperties();
+        return {
+            app: values[ServerConstant.PROPERTY_KEYS.appPasswordHash] ?? "",
+            admin: values[ServerConstant.PROPERTY_KEYS.adminPasswordHash] ?? "",
+        };
     }
 
-    static setCurrentYear(ref: CurrentYearRef): SystemConfig {
-        const config = this.getConfig();
-        const exists = config.academicYears.some(
-            (year) => year.y === ref.y && year.t === ref.t,
+    static setAcademicYearsAndCurrent(
+        years: AcademicYear[],
+        currentYear: CurrentYearRef,
+    ): SystemConfig {
+        this.validateAcademicYears(years);
+        const exists = years.some(
+            (year) => year.y === currentYear.y && year.t === currentYear.t,
         );
         ServerUtils.assert(exists, "ไม่พบปีการศึกษา/เทอมที่เลือก");
-        this.properties().setProperty(
-            ServerConstant.PROPERTY_KEYS.currentYear,
-            ServerUtils.stringifyJson(ref),
+        this.properties().setProperties(
+            {
+                [ServerConstant.PROPERTY_KEYS.academicYears]:
+                    ServerUtils.stringifyJson(years),
+                [ServerConstant.PROPERTY_KEYS.currentYear]:
+                    ServerUtils.stringifyJson(currentYear),
+            },
+            false,
         );
         return this.getConfig();
     }
@@ -129,7 +155,10 @@ export class MainConfig {
             config.academicYears,
             config.currentYear,
         );
-        ServerUtils.assert(current !== null, "ยังไม่ได้ตั้งค่าปีการศึกษาปัจจุบัน");
+        ServerUtils.assert(
+            current !== null,
+            "ยังไม่ได้ตั้งค่าปีการศึกษาปัจจุบัน",
+        );
         return current;
     }
 
@@ -158,7 +187,10 @@ export class MainConfig {
         const yearKeys = new Set<string>();
         for (const year of years) {
             ServerUtils.assert(year.id.length > 0, "ต้องระบุ Google Sheet ID");
-            ServerUtils.assert(!sheetIds.has(year.id), "Google Sheet ID ห้ามซ้ำ");
+            ServerUtils.assert(
+                !sheetIds.has(year.id),
+                "Google Sheet ID ห้ามซ้ำ",
+            );
             sheetIds.add(year.id);
             const key = ServerUtils.academicYearKey(year);
             ServerUtils.assert(!yearKeys.has(key), "ปีการศึกษาและเทอมห้ามซ้ำ");

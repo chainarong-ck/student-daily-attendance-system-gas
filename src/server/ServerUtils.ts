@@ -23,13 +23,26 @@ export class ServerUtils {
         }
     }
 
+    static withScriptLock<T>(callback: () => T): T {
+        const lock = LockService.getScriptLock();
+        lock.waitLock(10_000);
+        try {
+            return callback();
+        } finally {
+            lock.releaseLock();
+        }
+    }
+
     static normalizeText(value: unknown): string {
         return String(value ?? "").trim();
     }
 
     static toNumber(value: unknown, fieldName: string): number {
         const numberValue = Number(value);
-        this.assert(Number.isInteger(numberValue), `${fieldName} ต้องเป็นตัวเลขจำนวนเต็ม`);
+        this.assert(
+            Number.isInteger(numberValue),
+            `${fieldName} ต้องเป็นตัวเลขจำนวนเต็ม`,
+        );
         return numberValue;
     }
 
@@ -62,20 +75,27 @@ export class ServerUtils {
         return `${prefix}_${time}${random}`;
     }
 
-    static todayText(): string {
-        return Utilities.formatDate(
-            new Date(),
-            Session.getScriptTimeZone(),
-            "yyyy-MM-dd",
+    static isDateText(value: string): boolean {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) {
+            return false;
+        }
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        return (
+            date.getUTCFullYear() === year &&
+            date.getUTCMonth() === month - 1 &&
+            date.getUTCDate() === day
         );
     }
 
-    static isDateText(value: string): boolean {
-        return /^\d{4}-\d{2}-\d{2}$/.test(value);
-    }
-
     static assertDateText(value: string): void {
-        this.assert(this.isDateText(value), "วันที่ต้องอยู่ในรูปแบบ yyyy-MM-dd");
+        this.assert(
+            this.isDateText(value),
+            "วันที่ต้องอยู่ในรูปแบบ yyyy-MM-dd",
+        );
     }
 
     static academicYearKey(value: AcademicYear | CurrentYearRef): string {
@@ -119,9 +139,13 @@ export class ServerUtils {
         };
     }
 
-    static assertAttendanceStatus(status: string): asserts status is AttendanceStatus {
+    static assertAttendanceStatus(
+        status: string,
+    ): asserts status is AttendanceStatus {
         this.assert(
-            ServerConstant.ATTENDANCE_STATUSES.includes(status as AttendanceStatus),
+            ServerConstant.ATTENDANCE_STATUSES.includes(
+                status as AttendanceStatus,
+            ),
             "สถานะการเช็คชื่อไม่ถูกต้อง",
         );
     }

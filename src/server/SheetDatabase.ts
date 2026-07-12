@@ -12,9 +12,9 @@ export class SheetDatabase {
     }
 
     ensureSchema(): void {
-        this.ensureSheet("Classes");
-        this.ensureSheet("Students");
-        this.ensureSheet("Attendance");
+        this.ensureSheet("Classes", true);
+        this.ensureSheet("Students", true);
+        this.ensureSheet("Attendance", true);
     }
 
     readObjects(sheetName: SheetName): Record<string, string>[] {
@@ -42,17 +42,20 @@ export class SheetDatabase {
         const sheet = this.ensureSheet(sheetName);
         const headers = [...ServerConstant.HEADERS[sheetName]];
         this.ensureRowCapacity(sheet, Math.max(rows.length + 1, 2));
-        const maxRows = Math.max(sheet.getMaxRows() - 1, 1);
-        sheet.getRange(2, 1, maxRows, headers.length).clearContent();
+        const existingRows = Math.max(sheet.getLastRow() - 1, 0);
+        if (existingRows > 0) {
+            sheet.getRange(2, 1, existingRows, headers.length).clearContent();
+        }
         if (rows.length === 0) {
-            this.formatSheet(sheet, headers.length);
             return;
         }
         const values = rows.map((row) =>
             headers.map((header) => ServerUtils.normalizeText(row[header])),
         );
-        sheet.getRange(2, 1, values.length, headers.length).setValues(values);
-        this.formatSheet(sheet, headers.length);
+        sheet
+            .getRange(2, 1, values.length, headers.length)
+            .setNumberFormat("@")
+            .setValues(values);
     }
 
     appendObjects(sheetName: SheetName, rows: Record<string, string>[]): void {
@@ -67,30 +70,41 @@ export class SheetDatabase {
         this.ensureRowCapacity(sheet, sheet.getLastRow() + values.length);
         sheet
             .getRange(sheet.getLastRow() + 1, 1, values.length, headers.length)
+            .setNumberFormat("@")
             .setValues(values);
-        this.formatSheet(sheet, headers.length);
     }
 
-    private ensureSheet(sheetName: SheetName): GoogleAppsScript.Spreadsheet.Sheet {
+    private ensureSheet(
+        sheetName: SheetName,
+        verifySchema = false,
+    ): GoogleAppsScript.Spreadsheet.Sheet {
         const headers = [...ServerConstant.HEADERS[sheetName]];
         let sheet = this.spreadsheet.getSheetByName(sheetName);
+        let created = false;
         if (!sheet) {
             sheet = this.spreadsheet.insertSheet(sheetName);
+            created = true;
         }
         this.ensureRowCapacity(sheet, 2);
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        sheet.setFrozenRows(1);
-        this.formatSheet(sheet, headers.length);
+        if (created || verifySchema) {
+            const currentHeaders = sheet
+                .getRange(1, 1, 1, headers.length)
+                .getDisplayValues()[0];
+            const headerChanged = headers.some(
+                (header, index) => currentHeaders[index] !== header,
+            );
+            if (created || headerChanged) {
+                sheet
+                    .getRange(1, 1, 1, headers.length)
+                    .setNumberFormat("@")
+                    .setValues([headers]);
+            }
+            if (created) {
+                sheet.setFrozenRows(1);
+                sheet.autoResizeColumns(1, headers.length);
+            }
+        }
         return sheet;
-    }
-
-    private formatSheet(
-        sheet: GoogleAppsScript.Spreadsheet.Sheet,
-        columns: number,
-    ): void {
-        const rows = Math.max(sheet.getMaxRows(), 1);
-        sheet.getRange(1, 1, rows, columns).setNumberFormat("@");
-        sheet.autoResizeColumns(1, columns);
     }
 
     private ensureRowCapacity(

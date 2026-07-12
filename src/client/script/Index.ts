@@ -1,7 +1,6 @@
 import { googleScriptRun } from "../../shared/gas-client";
 import type {
     AttendanceClassSession,
-    AttendanceSummary,
     AttendanceStatus,
     AttendanceStats,
     ClassRoom,
@@ -39,6 +38,7 @@ const genderLabels: Record<StudentGender, string> = {
 let token = "";
 let bootstrap: IndexBootstrap;
 let currentSession: AttendanceClassSession | null = null;
+let overviewDisplayMode: "count" | "percent" = "count";
 
 const panelClass =
     "rounded-lg border border-white/70 bg-white/95 p-5 shadow-xl shadow-slate-200/60";
@@ -46,12 +46,16 @@ const fieldClass =
     "rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100";
 const primaryButtonClass =
     "rounded-md bg-orange-600 px-4 py-2 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60";
-const tableHeadClass = "bg-gradient-to-r from-teal-50 to-orange-50 text-slate-700";
+const tableHeadClass =
+    "bg-gradient-to-r from-teal-50 to-orange-50 text-slate-700";
 
 async function main(): Promise<void> {
     token = localStorage.getItem(APP_TOKEN_KEY) ?? "";
     if (!token) {
-        showLoginRequired("app", "กรุณา Login ด้วยรหัสครูก่อนเข้าใช้งานหน้าเช็คชื่อ");
+        showLoginRequired(
+            "app",
+            "กรุณา Login ด้วยรหัสครูก่อนเข้าใช้งานหน้าเช็คชื่อ",
+        );
         return;
     }
     try {
@@ -80,7 +84,11 @@ function render(): void {
                 <div>
                     ${sectionTitle("ภาพรวมรายวัน")}
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex rounded-md border border-slate-200 bg-slate-50 p-1" aria-label="รูปแบบตัวเลขภาพรวม">
+                        <button type="button" data-overview-mode="count" class="${overviewModeButtonClass("count")}">จำนวน</button>
+                        <button type="button" data-overview-mode="percent" class="${overviewModeButtonClass("percent")}">เปอร์เซ็นต์</button>
+                    </div>
                     <input id="overviewDate" type="date" value="${todayText()}" class="${fieldClass}" />
                     <button id="loadOverviewButton" class="${primaryButtonClass}">โหลด</button>
                 </div>
@@ -115,18 +123,39 @@ function render(): void {
     );
     bindShellActions();
 
-    document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
-        button.addEventListener("click", () => activateTab(button.dataset.tab ?? "overview"));
-    });
-    document.getElementById("loadOverviewButton")?.addEventListener("click", () => {
-        void loadOverview();
-    });
-    document.getElementById("loadSessionButton")?.addEventListener("click", () => {
-        void loadSession();
-    });
-    document.getElementById("loadStatsButton")?.addEventListener("click", () => {
-        void loadStats();
-    });
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-tab]")
+        .forEach((button) => {
+            button.addEventListener("click", () =>
+                activateTab(button.dataset.tab ?? "overview"),
+            );
+        });
+    document
+        .getElementById("loadOverviewButton")
+        ?.addEventListener("click", () => {
+            void loadOverview();
+        });
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-overview-mode]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                overviewDisplayMode =
+                    button.dataset.overviewMode === "percent"
+                        ? "percent"
+                        : "count";
+                applyOverviewDisplayMode();
+            });
+        });
+    document
+        .getElementById("loadSessionButton")
+        ?.addEventListener("click", () => {
+            void loadSession();
+        });
+    document
+        .getElementById("loadStatsButton")
+        ?.addEventListener("click", () => {
+            void loadStats();
+        });
 }
 
 function tabButton(id: string, label: string, active: boolean): string {
@@ -137,14 +166,41 @@ function tabButtonClass(active: boolean): string {
     return `rounded-md px-4 py-2 text-sm font-semibold transition ${active ? "bg-orange-600 text-white" : "bg-white text-slate-700 shadow-sm hover:bg-teal-50 hover:text-teal-800"}`;
 }
 
+function overviewModeButtonClass(mode: "count" | "percent"): string {
+    return `rounded px-3 py-1.5 text-sm font-semibold transition ${overviewDisplayMode === mode ? "bg-orange-600 text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-900"}`;
+}
+
+function applyOverviewDisplayMode(): void {
+    document
+        .querySelectorAll<HTMLElement>("[data-overview-value]")
+        .forEach((element) => {
+            element.textContent = element.dataset[overviewDisplayMode] ?? "0";
+        });
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-overview-mode]")
+        .forEach((button) => {
+            const mode =
+                button.dataset.overviewMode === "percent" ? "percent" : "count";
+            button.className = overviewModeButtonClass(mode);
+            button.setAttribute(
+                "aria-pressed",
+                String(mode === overviewDisplayMode),
+            );
+        });
+}
+
 function sectionTitle(title: string): string {
     return `<h2 class="mb-4 text-xl font-bold text-slate-950">${escapeHtml(title)}<span class="ml-2 text-sm font-semibold text-teal-700">${escapeHtml(currentYearText())}</span></h2>`;
 }
 
 function activateTab(id: string): void {
     ["overview", "attendance", "stats"].forEach((tab) => {
-        document.getElementById(`${tab}Panel`)?.classList.toggle("hidden", tab !== id);
-        const button = document.querySelector<HTMLButtonElement>(`[data-tab="${tab}"]`);
+        document
+            .getElementById(`${tab}Panel`)
+            ?.classList.toggle("hidden", tab !== id);
+        const button = document.querySelector<HTMLButtonElement>(
+            `[data-tab="${tab}"]`,
+        );
         if (button) {
             button.className = tabButtonClass(tab === id);
         }
@@ -153,7 +209,9 @@ function activateTab(id: string): void {
 
 function currentYearText(): string {
     const year = bootstrap.system.currentYear;
-    return year ? `ปีการศึกษา ${year.y} เทอม ${year.t}` : "ยังไม่ได้ตั้งค่าปีการศึกษาปัจจุบัน";
+    return year
+        ? `ปีการศึกษา ${year.y} เทอม ${year.t}`
+        : "ยังไม่ได้ตั้งค่าปีการศึกษาปัจจุบัน";
 }
 
 function classOptions(classes: ClassRoom[], placeholder = true): string {
@@ -170,13 +228,21 @@ function genderOptions(): string {
 }
 
 async function loadOverview(): Promise<void> {
-    const button = document.getElementById("loadOverviewButton") as HTMLButtonElement | null;
+    const button = document.getElementById(
+        "loadOverviewButton",
+    ) as HTMLButtonElement | null;
     if (button) {
         setBusy(button, true, "กำลังโหลด...");
     }
     try {
-        const date = (document.getElementById("overviewDate") as HTMLInputElement).value;
-        const overview = await googleScriptRun("getAttendanceOverview", token, date);
+        const date = (
+            document.getElementById("overviewDate") as HTMLInputElement
+        ).value;
+        const overview = await googleScriptRun(
+            "getAttendanceOverview",
+            token,
+            date,
+        );
         const content = document.getElementById("overviewContent");
         if (!content) {
             return;
@@ -190,11 +256,12 @@ async function loadOverview(): Promise<void> {
                     <tbody>${overview.classes
                         .map(
                             (row) =>
-                                `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60"><td class="p-3 font-medium text-slate-900">ชั้น ${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-3">${countCell(row.studentCount, genderBreakdownText(row.studentCountByGender))}</td><td class="p-3">${row.checked ? `<span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">เช็คแล้ว</span>` : `<span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">ยังไม่เช็ค</span>`}</td><td class="p-3">${statusCountCell(row.summary.present, row.summaryByGender, "present", "text-emerald-700")}</td><td class="p-3">${statusCountCell(row.summary.absent, row.summaryByGender, "absent", "text-rose-700")}</td><td class="p-3">${statusCountCell(row.summary.late, row.summaryByGender, "late", "text-amber-700")}</td><td class="p-3">${statusCountCell(row.summary.leave, row.summaryByGender, "leave", "text-sky-700")}</td></tr>`,
+                                `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60"><td class="p-3 font-medium text-slate-900">ชั้น ${escapeHtml(row.classRoom.grade)}/${escapeHtml(row.classRoom.room)}</td><td class="p-3">${countCell(row.studentCount, row.studentCount, row.studentCountByGender)}</td><td class="p-3">${row.checked ? `<span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">เช็คแล้ว</span>` : `<span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">ยังไม่เช็ค</span>`}</td><td class="p-3">${statusCountCell(row.summary.present, row.summaryByGender, "present", row.studentCount, "text-emerald-700")}</td><td class="p-3">${statusCountCell(row.summary.absent, row.summaryByGender, "absent", row.studentCount, "text-rose-700")}</td><td class="p-3">${statusCountCell(row.summary.late, row.summaryByGender, "late", row.studentCount, "text-amber-700")}</td><td class="p-3">${statusCountCell(row.summary.leave, row.summaryByGender, "leave", row.studentCount, "text-sky-700")}</td></tr>`,
                         )
                         .join("")}</tbody>
                 </table>
             </div>`;
+        applyOverviewDisplayMode();
     } catch (error) {
         showNotice("indexNotice", messageText(error), "error");
     } finally {
@@ -213,13 +280,28 @@ function studentCountCards(counts: {
     uncheckedByGender: GenderCounts;
 }): string {
     return [
-        ["นักเรียนทั้งหมด", counts.total, counts.byGender, "from-sky-50 to-white border-sky-200 text-sky-700"],
-        ["เช็คแล้ว", counts.checked, counts.checkedByGender, "from-emerald-50 to-white border-emerald-200 text-emerald-700"],
-        ["ยังไม่ได้เช็ค", counts.unchecked, counts.uncheckedByGender, "from-amber-50 to-white border-amber-200 text-amber-700"],
+        [
+            "นักเรียนทั้งหมด",
+            counts.total,
+            counts.byGender,
+            "from-sky-50 to-white border-sky-200 text-sky-700",
+        ],
+        [
+            "เช็คแล้ว",
+            counts.checked,
+            counts.checkedByGender,
+            "from-emerald-50 to-white border-emerald-200 text-emerald-700",
+        ],
+        [
+            "ยังไม่ได้เช็ค",
+            counts.unchecked,
+            counts.uncheckedByGender,
+            "from-amber-50 to-white border-amber-200 text-amber-700",
+        ],
     ]
         .map(
             ([label, value, byGender, classes]) =>
-                `<div class="rounded-lg border bg-gradient-to-br ${classes} p-4 shadow-sm"><p class="text-sm font-semibold text-slate-600">${label}</p><p class="mt-1 text-3xl font-bold">${value}</p><p class="mt-1 text-xs font-semibold opacity-80">${genderBreakdownText(byGender as GenderCounts)}</p></div>`,
+                `<div class="rounded-lg border bg-linear-to-br ${classes} p-4 shadow-sm"><p class="text-sm font-semibold text-slate-600">${label}</p><p class="mt-1 text-3xl font-bold">${overviewValue(value as number, counts.total)}</p><p class="mt-1 text-xs font-semibold opacity-80">${genderBreakdownValue(byGender as GenderCounts, value as number)}</p></div>`,
         )
         .join("");
 }
@@ -238,44 +320,72 @@ function summaryCards(
     return (Object.keys(statusLabels) as AttendanceStatus[])
         .map(
             (status) =>
-                `<div class="rounded-lg border p-4 shadow-sm ${statusClasses[status]}"><p class="text-sm font-semibold">${statusLabels[status]}</p><p class="mt-1 text-3xl font-bold">${summary[status]}</p><p class="mt-1 text-xs font-semibold opacity-80">${statusGenderBreakdownText(summaryByGender, status)}</p><p class="mt-2 text-sm font-semibold opacity-80">${formatPercent(summary[status], baseTotal)}</p></div>`,
+                `<div class="rounded-lg border p-4 shadow-sm ${statusClasses[status]}"><p class="text-sm font-semibold">${statusLabels[status]}</p><p class="mt-1 text-3xl font-bold">${overviewValue(summary[status], baseTotal)}</p><p class="mt-1 text-xs font-semibold opacity-80">${statusGenderBreakdownValue(summaryByGender, status, summary[status])}</p></div>`,
         )
         .join("");
 }
 
-function countCell(value: number, detail: string, colorClass = "text-slate-900"): string {
-    return `<span class="font-semibold ${colorClass}">${value}</span><div class="mt-1 text-xs text-slate-500">${escapeHtml(detail)}</div>`;
+function countCell(
+    value: number,
+    total: number,
+    byGender: GenderCounts,
+    colorClass = "text-slate-900",
+): string {
+    return `<span class="font-semibold ${colorClass}">${overviewValue(value, total)}</span><div class="mt-1 text-xs text-slate-500">${genderBreakdownValue(byGender, value)}</div>`;
 }
 
 function statusCountCell(
     value: number,
     summaryByGender: GenderAttendanceSummary,
     status: AttendanceStatus,
+    total: number,
     colorClass: string,
 ): string {
-    return countCell(value, statusGenderBreakdownText(summaryByGender, status), colorClass);
+    return countCell(
+        value,
+        total,
+        statusGenderCounts(summaryByGender, status),
+        colorClass,
+    );
 }
 
-function genderBreakdownText(counts: GenderCounts): string {
+function overviewValue(value: number, total: number): string {
+    return `<span data-overview-value data-count="${value}" data-percent="${formatPercent(value, total)}">${value}</span>`;
+}
+
+function genderBreakdownValue(counts: GenderCounts, total: number): string {
     const parts = [
-        `${genderLabels.male} ${counts.male}`,
-        `${genderLabels.female} ${counts.female}`,
+        `${genderLabels.male} ${overviewValue(counts.male, total)}`,
+        `${genderLabels.female} ${overviewValue(counts.female, total)}`,
     ];
     if (counts.unknown > 0) {
-        parts.push(`${genderLabels.unknown} ${counts.unknown}`);
+        parts.push(
+            `${genderLabels.unknown} ${overviewValue(counts.unknown, total)}`,
+        );
     }
     return parts.join(" | ");
 }
 
-function statusGenderBreakdownText(
+function statusGenderCounts(
     summaryByGender: GenderAttendanceSummary,
     status: AttendanceStatus,
-): string {
-    return genderBreakdownText({
+): GenderCounts {
+    return {
         male: summaryByGender.male[status],
         female: summaryByGender.female[status],
         unknown: summaryByGender.unknown[status],
-    });
+    };
+}
+
+function statusGenderBreakdownValue(
+    summaryByGender: GenderAttendanceSummary,
+    status: AttendanceStatus,
+    total: number,
+): string {
+    return genderBreakdownValue(
+        statusGenderCounts(summaryByGender, status),
+        total,
+    );
 }
 
 function formatPercent(value: number, total: number): string {
@@ -286,16 +396,26 @@ function formatPercent(value: number, total: number): string {
 }
 
 async function loadSession(): Promise<void> {
-    const classId = (document.getElementById("classSelect") as HTMLSelectElement).value;
-    const date = (document.getElementById("attendanceDate") as HTMLInputElement).value;
+    const classId = (
+        document.getElementById("classSelect") as HTMLSelectElement
+    ).value;
+    const date = (document.getElementById("attendanceDate") as HTMLInputElement)
+        .value;
     if (!classId) {
         showNotice("indexNotice", "กรุณาเลือกห้องเรียน", "error");
         return;
     }
-    const button = document.getElementById("loadSessionButton") as HTMLButtonElement;
+    const button = document.getElementById(
+        "loadSessionButton",
+    ) as HTMLButtonElement;
     setBusy(button, true, "กำลังโหลด...");
     try {
-        currentSession = await googleScriptRun("getAttendanceClassSession", token, classId, date);
+        currentSession = await googleScriptRun(
+            "getAttendanceClassSession",
+            token,
+            classId,
+            date,
+        );
         renderSession();
     } catch (error) {
         showNotice("indexNotice", messageText(error), "error");
@@ -325,9 +445,11 @@ function renderSession(): void {
             </table>
         </div>
         <button id="saveAttendanceButton" class="mt-4 ${primaryButtonClass}">${currentSession.checked ? "บันทึกการแก้ไข" : "บันทึกการเช็คชื่อ"}</button>`;
-    document.getElementById("saveAttendanceButton")?.addEventListener("click", () => {
-        void persistSession();
-    });
+    document
+        .getElementById("saveAttendanceButton")
+        ?.addEventListener("click", () => {
+            void persistSession();
+        });
 }
 
 function statusSelect(selected: AttendanceStatus): string {
@@ -343,7 +465,9 @@ async function persistSession(): Promise<void> {
     if (!currentSession) {
         return;
     }
-    const button = document.getElementById("saveAttendanceButton") as HTMLButtonElement;
+    const button = document.getElementById(
+        "saveAttendanceButton",
+    ) as HTMLButtonElement;
     setBusy(button, true, "กำลังบันทึก...");
     try {
         const records = Array.from(
@@ -363,8 +487,7 @@ async function persistSession(): Promise<void> {
             payload,
         );
         showNotice("indexNotice", "บันทึกข้อมูลเรียบร้อย", "ok");
-        await loadSession();
-        await loadOverview();
+        await Promise.all([loadSession(), loadOverview()]);
     } catch (error) {
         showNotice("indexNotice", messageText(error), "error");
     } finally {
@@ -373,16 +496,22 @@ async function persistSession(): Promise<void> {
 }
 
 async function loadStats(): Promise<void> {
-    const button = document.getElementById("loadStatsButton") as HTMLButtonElement;
+    const button = document.getElementById(
+        "loadStatsButton",
+    ) as HTMLButtonElement;
     setBusy(button, true, "กำลังโหลด...");
     try {
         const stats = await googleScriptRun("getAttendanceStats", token, {
-            dateFrom: (document.getElementById("statsFrom") as HTMLInputElement).value,
-            dateTo: (document.getElementById("statsTo") as HTMLInputElement).value,
-            classId: (document.getElementById("statsClass") as HTMLSelectElement).value,
-            gender: (document.getElementById("statsGender") as HTMLSelectElement).value as
-                | StudentGender
-                | "",
+            dateFrom: (document.getElementById("statsFrom") as HTMLInputElement)
+                .value,
+            dateTo: (document.getElementById("statsTo") as HTMLInputElement)
+                .value,
+            classId: (
+                document.getElementById("statsClass") as HTMLSelectElement
+            ).value,
+            gender: (
+                document.getElementById("statsGender") as HTMLSelectElement
+            ).value as StudentGender | "",
         });
         renderStats(stats);
     } catch (error) {
@@ -397,7 +526,7 @@ function renderStats(stats: AttendanceStats): void {
     if (!content) {
         return;
     }
-    content.innerHTML = `<div class="mb-4 grid gap-3 sm:grid-cols-3">${statsGenderCards(stats)}</div><div class="overflow-x-auto"><table class="w-full min-w-220 overflow-hidden rounded-md text-left text-sm">
+    content.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-220 overflow-hidden rounded-md text-left text-sm">
         <thead class="${tableHeadClass}"><tr><th class="p-3">ห้อง</th><th class="p-3">เลขที่</th><th class="p-3">ชื่อ-สกุล</th><th class="p-3">เพศ</th><th class="p-3">มา</th><th class="p-3">ขาด</th><th class="p-3">สาย</th><th class="p-3">ลา</th><th class="p-3">รวม</th></tr></thead>
         <tbody>${stats.rows
             .map(
@@ -408,55 +537,11 @@ function renderStats(stats: AttendanceStats): void {
     </table></div>`;
 }
 
-function statsGenderCards(stats: AttendanceStats): string {
-    const summaryByGender = emptyClientGenderAttendanceSummary();
-    const studentCounts = emptyClientGenderCounts();
-    stats.rows.forEach((row) => {
-        studentCounts[row.student.gender] += 1;
-        (Object.keys(statusLabels) as AttendanceStatus[]).forEach((status) => {
-            summaryByGender[row.student.gender][status] += row.summary[status];
-        });
-    });
-    const cardClasses: Record<StudentGender, string> = {
-        male: "border-sky-200 bg-sky-50 text-sky-700",
-        female: "border-rose-200 bg-rose-50 text-rose-700",
-        unknown: "border-slate-200 bg-slate-50 text-slate-700",
-    };
-    return (["male", "female", "unknown"] as StudentGender[])
-        .filter((gender) => gender !== "unknown" || studentCounts.unknown > 0)
-        .map(
-            (gender) =>
-                `<div class="rounded-lg border p-4 shadow-sm ${cardClasses[gender]}"><p class="text-sm font-semibold">${genderLabels[gender]}</p><p class="mt-1 text-3xl font-bold">${studentCounts[gender]}</p><p class="mt-2 text-xs font-semibold opacity-80">มา ${summaryByGender[gender].present} | ขาด ${summaryByGender[gender].absent} | สาย ${summaryByGender[gender].late} | ลา ${summaryByGender[gender].leave}</p></div>`,
-        )
-        .join("");
-}
-
-function emptyClientGenderCounts(): GenderCounts {
-    return {
-        male: 0,
-        female: 0,
-        unknown: 0,
-    };
-}
-
-function emptyClientSummary(): AttendanceSummary {
-    return {
-        present: 0,
-        absent: 0,
-        late: 0,
-        leave: 0,
-    };
-}
-
-function emptyClientGenderAttendanceSummary(): GenderAttendanceSummary {
-    return {
-        male: emptyClientSummary(),
-        female: emptyClientSummary(),
-        unknown: emptyClientSummary(),
-    };
-}
-
-function statsCell(value: number, total: number, colorClass = "text-slate-900"): string {
+function statsCell(
+    value: number,
+    total: number,
+    colorClass = "text-slate-900",
+): string {
     return `<span class="font-semibold ${colorClass}">${value}</span><span class="ml-2 text-slate-500">${formatPercent(value, total)}</span>`;
 }
 

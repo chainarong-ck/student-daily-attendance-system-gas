@@ -13,22 +13,31 @@ import type {
 import { AcademicYearService } from "./AcademicYearService";
 import { ClassService } from "./ClassService";
 import { ServerUtils } from "./ServerUtils";
+import { SheetDatabase } from "./SheetDatabase";
 import { StudentService } from "./StudentService";
 
 export class AttendanceService {
-    static getClassSession(classId: string, date: string): AttendanceClassSession {
+    static getClassSession(
+        classId: string,
+        date: string,
+    ): AttendanceClassSession {
         ServerUtils.assertDateText(date);
-        const classRoom = ClassService.listClasses().find((row) => row.id === classId);
+        const database = AcademicYearService.ensureCurrentSheet();
+        const classRoom = ClassService.listClasses(database).find(
+            (row) => row.id === classId,
+        );
         if (!classRoom) {
             throw new Error("ไม่พบห้องเรียน");
         }
-        const students = StudentService.listStudents(classId).filter(
+        const students = StudentService.listStudents(classId, database).filter(
             (student) => student.status === "active",
         );
-        const records = this.listRecords().filter(
+        const records = this.listRecords(database).filter(
             (record) => record.date === date && record.classId === classId,
         );
-        const recordByStudent = new Map(records.map((record) => [record.studentId, record]));
+        const recordByStudent = new Map(
+            records.map((record) => [record.studentId, record]),
+        );
         return {
             date,
             classRoom,
@@ -40,24 +49,36 @@ export class AttendanceService {
         };
     }
 
-    static saveAttendance(payload: SaveAttendancePayload): SaveAttendanceResult {
+    static saveAttendance(
+        payload: SaveAttendancePayload,
+    ): SaveAttendanceResult {
         return this.persistAttendance(payload, false);
     }
 
-    static updateAttendance(payload: SaveAttendancePayload): SaveAttendanceResult {
+    static updateAttendance(
+        payload: SaveAttendancePayload,
+    ): SaveAttendanceResult {
         return this.persistAttendance(payload, true);
     }
 
     static getOverview(date: string): AttendanceOverview {
         ServerUtils.assertDateText(date);
-        const classes = ClassService.listClasses();
-        const records = this.listRecords().filter((record) => record.date === date);
-        const allStudents = StudentService.listStudents();
-        const studentById = new Map(allStudents.map((student) => [student.id, student]));
+        const database = AcademicYearService.ensureCurrentSheet();
+        const classes = ClassService.listClasses(database);
+        const allStudents = StudentService.listStudents(undefined, database);
+        const studentById = new Map(
+            allStudents.map((student) => [student.id, student]),
+        );
         const activeStudents = allStudents.filter(
             (student) => student.status === "active",
         );
-        const activeStudentIds = new Set(activeStudents.map((student) => student.id));
+        const activeStudentIds = new Set(
+            activeStudents.map((student) => student.id),
+        );
+        const records = this.listRecords(database).filter(
+            (record) =>
+                record.date === date && activeStudentIds.has(record.studentId),
+        );
         const studentCountByClass = new Map<string, number>();
         const studentCountByGender = ServerUtils.emptyGenderCounts();
         const studentCountByClassGender = new Map<string, GenderCounts>();
@@ -88,24 +109,33 @@ export class AttendanceService {
         });
         const total = ServerUtils.emptySummary();
         const totalByGender = ServerUtils.emptyGenderAttendanceSummary();
+        const recordsByClass = new Map<string, AttendanceRecord[]>();
+        records.forEach((record) => {
+            const classRecords = recordsByClass.get(record.classId) ?? [];
+            classRecords.push(record);
+            recordsByClass.set(record.classId, classRecords);
+        });
         return {
             date,
             studentCounts: {
                 total: activeStudents.length,
                 checked: checkedStudentIds.size,
-                unchecked: Math.max(activeStudents.length - checkedStudentIds.size, 0),
+                unchecked: Math.max(
+                    activeStudents.length - checkedStudentIds.size,
+                    0,
+                ),
                 byGender: studentCountByGender,
                 checkedByGender,
                 uncheckedByGender,
             },
             classes: classes.map((classRoom) => {
                 const summary = ServerUtils.emptySummary();
-                const summaryByGender = ServerUtils.emptyGenderAttendanceSummary();
-                const classRecords = records.filter(
-                    (record) => record.classId === classRoom.id,
-                );
+                const summaryByGender =
+                    ServerUtils.emptyGenderAttendanceSummary();
+                const classRecords = recordsByClass.get(classRoom.id) ?? [];
                 classRecords.forEach((record) => {
-                    const gender = studentById.get(record.studentId)?.gender ?? "unknown";
+                    const gender =
+                        studentById.get(record.studentId)?.gender ?? "unknown";
                     summary[record.status] += 1;
                     total[record.status] += 1;
                     summaryByGender[gender][record.status] += 1;
@@ -140,15 +170,19 @@ export class AttendanceService {
                 "ช่วงวันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด",
             );
         }
-        const classMap = new Map(ClassService.listClasses().map((row) => [row.id, row]));
+        const database = AcademicYearService.ensureCurrentSheet();
+        const classMap = new Map(
+            ClassService.listClasses(database).map((row) => [row.id, row]),
+        );
         const filterGenderText = ServerUtils.normalizeText(filters.gender);
         const genderFilter: StudentGender | "" = filterGenderText
             ? ServerUtils.normalizeStudentGender(filterGenderText)
             : "";
-        const students = StudentService.listStudents(filters.classId).filter(
-            (student) => !genderFilter || student.gender === genderFilter,
-        );
-        const records = this.listRecords().filter((record) => {
+        const students = StudentService.listStudents(
+            filters.classId,
+            database,
+        ).filter((student) => !genderFilter || student.gender === genderFilter);
+        const records = this.listRecords(database).filter((record) => {
             if (filters.classId && record.classId !== filters.classId) {
                 return false;
             }
@@ -162,20 +196,25 @@ export class AttendanceService {
         });
         const byStudent = new Map<string, AttendanceSummary>();
         records.forEach((record) => {
-            const summary = byStudent.get(record.studentId) ?? ServerUtils.emptySummary();
+            const summary =
+                byStudent.get(record.studentId) ?? ServerUtils.emptySummary();
             summary[record.status] += 1;
             byStudent.set(record.studentId, summary);
         });
         return {
             filters,
             rows: students.map((student) => {
-                const summary = byStudent.get(student.id) ?? ServerUtils.emptySummary();
+                const summary =
+                    byStudent.get(student.id) ?? ServerUtils.emptySummary();
                 return {
                     student,
                     classRoom: classMap.get(student.classId) ?? null,
                     summary,
                     total:
-                        summary.present + summary.absent + summary.late + summary.leave,
+                        summary.present +
+                        summary.absent +
+                        summary.late +
+                        summary.leave,
                 };
             }),
         };
@@ -185,72 +224,108 @@ export class AttendanceService {
         payload: SaveAttendancePayload,
         allowUpdate: boolean,
     ): SaveAttendanceResult {
-        ServerUtils.assertDateText(payload.date);
-        const session = this.getClassSession(payload.classId, payload.date);
-        ServerUtils.assert(
-            allowUpdate || !session.checked,
-            "ห้องนี้เช็คชื่อของวันที่เลือกไปแล้ว กรุณาใช้ปุ่มแก้ไข",
-        );
-        const activeStudentIds = new Set(session.rows.map((row) => row.student.id));
-        const recordStudentIds = new Set<string>();
-        const incoming = payload.records.map((record) => {
-            ServerUtils.assert(activeStudentIds.has(record.studentId), "รายชื่อนักเรียนไม่ถูกต้อง");
-            ServerUtils.assertAttendanceStatus(record.status);
-            ServerUtils.assert(!recordStudentIds.has(record.studentId), "รายการเช็คชื่อซ้ำ");
-            recordStudentIds.add(record.studentId);
-            return record;
-        });
-        ServerUtils.assert(
-            incoming.length === activeStudentIds.size,
-            "ต้องบันทึกสถานะนักเรียนที่กำลังศึกษาอยู่ให้ครบทุกคน",
-        );
-
-        const database = AcademicYearService.ensureCurrentSheet();
-        const allRecords = this.listRecords();
-        const existingByStudent = new Map(
-            allRecords
-                .filter(
-                    (record) =>
-                        record.date === payload.date &&
-                        record.classId === payload.classId,
-                )
-                .map((record) => [record.studentId, record]),
-        );
-        const persisted = incoming.map((record) => ({
-            id: existingByStudent.get(record.studentId)?.id ?? ServerUtils.createShortId("a"),
-            date: payload.date,
-            classId: payload.classId,
-            studentId: record.studentId,
-            status: record.status,
-        }));
-        const replaceKeys = new Set(persisted.map((record) => record.studentId));
-        const kept = allRecords.filter(
-            (record) =>
-                !(
+        const lock = LockService.getScriptLock();
+        lock.waitLock(10_000);
+        try {
+            ServerUtils.assertDateText(payload.date);
+            const database = AcademicYearService.ensureCurrentSheet();
+            const classExists = ClassService.listClasses(database).some(
+                (row) => row.id === payload.classId,
+            );
+            ServerUtils.assert(classExists, "ไม่พบห้องเรียน");
+            const activeStudentIds = new Set(
+                StudentService.listStudents(payload.classId, database)
+                    .filter((student) => student.status === "active")
+                    .map((student) => student.id),
+            );
+            ServerUtils.assert(
+                activeStudentIds.size > 0,
+                "ห้องเรียนนี้ไม่มีนักเรียนที่กำลังศึกษาอยู่",
+            );
+            const allRecords = this.listRecords(database);
+            const existingSessionRecords = allRecords.filter(
+                (record) =>
                     record.date === payload.date &&
-                    record.classId === payload.classId &&
-                    replaceKeys.has(record.studentId)
-                ),
-        );
-        database.writeObjects("Attendance", [...kept, ...persisted]);
-        return {
-            mode: allowUpdate ? "updated" : "created",
-            records: persisted,
-        };
+                    record.classId === payload.classId,
+            );
+            ServerUtils.assert(
+                allowUpdate || existingSessionRecords.length === 0,
+                "ห้องนี้เช็คชื่อของวันที่เลือกไปแล้ว กรุณาใช้ปุ่มแก้ไข",
+            );
+            ServerUtils.assert(
+                !allowUpdate || existingSessionRecords.length > 0,
+                "ยังไม่มีข้อมูลเช็คชื่อเดิม กรุณาบันทึกการเช็คชื่อก่อน",
+            );
+            const recordStudentIds = new Set<string>();
+            const incoming = payload.records.map((record) => {
+                ServerUtils.assert(
+                    activeStudentIds.has(record.studentId),
+                    "รายชื่อนักเรียนไม่ถูกต้อง",
+                );
+                ServerUtils.assertAttendanceStatus(record.status);
+                ServerUtils.assert(
+                    !recordStudentIds.has(record.studentId),
+                    "รายการเช็คชื่อซ้ำ",
+                );
+                recordStudentIds.add(record.studentId);
+                return record;
+            });
+            ServerUtils.assert(
+                incoming.length === activeStudentIds.size,
+                "ต้องบันทึกสถานะนักเรียนที่กำลังศึกษาอยู่ให้ครบทุกคน",
+            );
+            const existingByStudent = new Map(
+                existingSessionRecords.map((record) => [
+                    record.studentId,
+                    record,
+                ]),
+            );
+            const persisted = incoming.map((record) => ({
+                id:
+                    existingByStudent.get(record.studentId)?.id ??
+                    ServerUtils.createShortId("a"),
+                date: payload.date,
+                classId: payload.classId,
+                studentId: record.studentId,
+                status: record.status,
+            }));
+            if (allowUpdate) {
+                const kept = allRecords.filter(
+                    (record) =>
+                        record.date !== payload.date ||
+                        record.classId !== payload.classId,
+                );
+                database.writeObjects("Attendance", [...kept, ...persisted]);
+            } else {
+                database.appendObjects("Attendance", persisted);
+            }
+            return {
+                mode: allowUpdate ? "updated" : "created",
+                records: persisted,
+            };
+        } finally {
+            lock.releaseLock();
+        }
     }
 
-    private static listRecords(): AttendanceRecord[] {
-        return AcademicYearService.ensureCurrentSheet()
-            .readObjects("Attendance")
-            .map((row) => {
-                ServerUtils.assertAttendanceStatus(row.status);
-                return {
-                    id: row.id,
-                    date: row.date,
-                    classId: row.classId,
-                    studentId: row.studentId,
-                    status: row.status,
-                };
-            });
+    private static listRecords(database: SheetDatabase): AttendanceRecord[] {
+        const records = database.readObjects("Attendance").map((row) => {
+            ServerUtils.assertAttendanceStatus(row.status);
+            return {
+                id: row.id,
+                date: row.date,
+                classId: row.classId,
+                studentId: row.studentId,
+                status: row.status,
+            };
+        });
+        return [
+            ...new Map(
+                records.map((record) => [
+                    `${record.date}:${record.classId}:${record.studentId}`,
+                    record,
+                ]),
+            ).values(),
+        ];
     }
 }
