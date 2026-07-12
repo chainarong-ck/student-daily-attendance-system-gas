@@ -398,7 +398,7 @@ Global functions ที่ client เรียกผ่าน `google.script.run
 | `saveSystemSettings(adminToken, payload)` | admin | บันทึกตั้งค่าระบบ |
 | `saveAcademicYears(adminToken, payload)` | admin | บันทึกปีการศึกษา/current year และคืนข้อมูลหน้า Admin ชุดใหม่ |
 | `saveClasses(adminToken, rows)` | admin | บันทึกห้องเรียน |
-| `saveStudents(adminToken, rows)` | admin | บันทึกรายชื่อนักเรียน |
+| `saveStudents(adminToken, classId, rows)` | admin | บันทึกรายชื่อนักเรียนเฉพาะห้องที่เลือก |
 | `forceDeleteStudents(adminToken, payload)` | admin | บังคับลบนักเรียนพร้อมประวัติเช็คชื่อ |
 | `getAttendanceClassSession(token, classId, date)` | app | โหลด session เช็คชื่อรายห้อง |
 | `saveAttendance(token, payload)` | app | บันทึกเช็คชื่อครั้งแรก |
@@ -418,7 +418,7 @@ Global functions ที่ client เรียกผ่าน `google.script.run
 | รายการ | กฎ |
 | --- | --- |
 | ชื่อโรงเรียน | ต้องมีค่า และไม่เกิน 100 ตัวอักษร |
-| ปีการศึกษา/เทอม | ไม่เกิน 50 รายการ |
+| ปีการศึกษา/เทอม | ไม่เกิน 50 รายการ และเทอมต้องอยู่ระหว่าง 1-3 |
 | Google Sheet ID | ห้ามซ้ำ |
 | ปีการศึกษา + เทอม | ห้ามซ้ำ |
 | ห้องเรียน | ไม่เกิน 20 ห้อง |
@@ -445,6 +445,7 @@ yyyy-MM-dd
 - การเช็คชื่อครั้งแรก append ข้อมูลเป็น batch โดยไม่เขียน Attendance เดิมทั้งตารางใหม่
 - การตั้ง header, number format และ auto-resize ไม่ทำซ้ำทุกครั้งที่อ่านข้อมูล
 - งานเขียนใช้ Apps Script lock ป้องกัน request พร้อมกันเขียนทับข้อมูลกัน
+- การบันทึกนักเรียนส่งเฉพาะห้องที่แก้ไขและรวมกับข้อมูลล่าสุดบน server เพื่อไม่ให้ snapshot เก่าเขียนทับห้องอื่น
 - ปีการศึกษาและ current year ถูกบันทึกใน Script Properties พร้อมกัน
 - ภาพรวมรายวันนับเฉพาะนักเรียนสถานะ `active` และตัด attendance key ที่ซ้ำก่อนคำนวณ
 - client รวม bootstrap และส่ง request ที่ไม่ขึ้นต่อกันพร้อมกันเพื่อลดเวลารอ

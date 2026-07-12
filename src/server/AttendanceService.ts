@@ -290,10 +290,16 @@ export class AttendanceService {
                 status: record.status,
             }));
             if (allowUpdate) {
+                const updatedStudentIds = new Set(
+                    persisted.map((record) => record.studentId),
+                );
                 const kept = allRecords.filter(
                     (record) =>
-                        record.date !== payload.date ||
-                        record.classId !== payload.classId,
+                        !(
+                            record.date === payload.date &&
+                            record.classId === payload.classId &&
+                            updatedStudentIds.has(record.studentId)
+                        ),
                 );
                 database.writeObjects("Attendance", [...kept, ...persisted]);
             } else {

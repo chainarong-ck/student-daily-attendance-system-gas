@@ -429,6 +429,14 @@ function renderSession(): void {
     if (!content || !currentSession) {
         return;
     }
+    if (currentSession.rows.length === 0) {
+        content.innerHTML = `
+            <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
+                <p class="font-semibold">ห้องเรียนนี้ยังไม่มีนักเรียนที่กำลังศึกษาอยู่</p>
+                <p class="mt-1 text-sm">กรุณาเพิ่มนักเรียนหรือเปลี่ยนสถานะนักเรียนเป็นกำลังศึกษาผ่านหน้า Admin ก่อนเช็คชื่อ</p>
+            </div>`;
+        return;
+    }
     content.innerHTML = `
         <div class="mb-3 rounded-md border ${currentSession.checked ? "border-amber-200 bg-amber-50 text-amber-800" : "border-teal-200 bg-teal-50 text-teal-800"} px-4 py-3 font-medium">
             ${currentSession.checked ? "ห้องนี้เช็คชื่อวันนี้แล้ว หากต้องการเปลี่ยนให้กดบันทึกการแก้ไข" : "ยังไม่เคยเช็คชื่อ สามารถบันทึกได้ทันที"}

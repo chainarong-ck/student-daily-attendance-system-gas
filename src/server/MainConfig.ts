@@ -170,7 +170,10 @@ export class MainConfig {
         const year = ServerUtils.toNumber(input.y, "ปีการศึกษา");
         const term = ServerUtils.toNumber(input.t, "เทอม");
         ServerUtils.assert(year > 0, "ปีการศึกษาต้องมากกว่า 0");
-        ServerUtils.assert(term > 0, "เทอมต้องมากกว่า 0");
+        ServerUtils.assert(
+            term >= 1 && term <= 3,
+            "เทอมต้องอยู่ระหว่าง 1 ถึง 3",
+        );
         return {
             id: ServerUtils.extractSpreadsheetId(input.id),
             y: year,

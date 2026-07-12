@@ -42,7 +42,7 @@ async function main(): Promise<void> {
                     <div class="grid gap-4 sm:grid-cols-3">
                         <div>
                             <label class="mb-1 block text-sm font-medium">ปีการศึกษา</label>
-                            <input name="year" type="number" required class="${fieldClass}" />
+                            <input name="year" type="number" min="1" required class="${fieldClass}" />
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium">เทอม</label>

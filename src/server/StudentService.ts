@@ -40,8 +40,30 @@ export class StudentService {
             .sort((a, b) => Number(a.number) - Number(b.number));
     }
 
-    static saveStudents(rows: Student[]): Student[] {
+    static saveStudentsForClass(classId: string, rows: Student[]): Student[] {
+        const targetClassId = ServerUtils.normalizeText(classId);
         const database = AcademicYearService.ensureCurrentSheet();
+        const classExists = ClassService.listClasses(database).some(
+            (classRoom) => classRoom.id === targetClassId,
+        );
+        ServerUtils.assert(classExists, "ไม่พบห้องเรียน");
+        const currentStudents = this.listStudents(undefined, database);
+        const merged = [
+            ...currentStudents.filter(
+                (student) => student.classId !== targetClassId,
+            ),
+            ...rows.map((student) => ({
+                ...student,
+                classId: targetClassId,
+            })),
+        ];
+        return this.saveStudents(merged, database);
+    }
+
+    private static saveStudents(
+        rows: Student[],
+        database: SheetDatabase,
+    ): Student[] {
         const classIds = new Set(
             ClassService.listClasses(database).map((row) => row.id),
         );

@@ -200,8 +200,8 @@ function academicYearPanel(): string {
 function academicYearRowHtml(row?: AcademicYear, current = false): string {
     return `<tr class="border-b border-slate-100 transition hover:bg-teal-50/60">
         <td class="p-2 text-center"><input type="radio" name="currentAcademicYear" data-current-year ${current ? "checked" : ""} /></td>
-        <td class="p-2"><input data-field="year" type="number" value="${escapeHtml(row?.y ?? "")}" class="${compactFieldClass}" /></td>
-        <td class="p-2"><input data-field="term" type="number" value="${escapeHtml(row?.t ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="year" type="number" min="1" value="${escapeHtml(row?.y ?? "")}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><input data-field="term" type="number" min="1" max="3" value="${escapeHtml(row?.t ?? "")}" class="${compactFieldClass}" /></td>
         <td class="p-2"><input data-field="sheetId" value="${escapeHtml(row?.id ?? "")}" class="${compactFieldClass}" /></td>
         ${deleteActionCellHtml()}
     </tr>`;
@@ -799,13 +799,12 @@ async function saveStudents(button: HTMLButtonElement): Promise<void> {
         const selectedClassId = getSelectedStudentClassId();
         const selectedClassRows = readStudentRowsFromTable(selectedClassId);
         validateStudentRowsBeforeSave(selectedClassRows);
-        const rows = [
-            ...state.students.filter(
-                (student) => student.classId !== selectedClassId,
-            ),
-            ...selectedClassRows,
-        ];
-        state.students = await googleScriptRun("saveStudents", token, rows);
+        state.students = await googleScriptRun(
+            "saveStudents",
+            token,
+            selectedClassId,
+            selectedClassRows,
+        );
         render();
         showNotice(
             "adminNotice",

@@ -40,7 +40,11 @@ declare global {
                 payload: SaveAcademicYearsPayload,
             ): AdminBootstrap;
             saveClasses(adminToken: string, rows: ClassRoom[]): ClassRoom[];
-            saveStudents(adminToken: string, rows: Student[]): Student[];
+            saveStudents(
+                adminToken: string,
+                classId: string,
+                rows: Student[],
+            ): Student[];
             forceDeleteStudents(
                 adminToken: string,
                 payload: ForceDeleteStudentsPayload,

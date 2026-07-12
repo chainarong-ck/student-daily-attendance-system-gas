@@ -157,9 +157,15 @@ export function saveClasses(
     return ServerUtils.withScriptLock(() => ClassService.saveClasses(rows));
 }
 
-export function saveStudents(adminToken: string, rows: Student[]): Student[] {
+export function saveStudents(
+    adminToken: string,
+    classId: string,
+    rows: Student[],
+): Student[] {
     AuthService.requireAdmin(adminToken);
-    return ServerUtils.withScriptLock(() => StudentService.saveStudents(rows));
+    return ServerUtils.withScriptLock(() =>
+        StudentService.saveStudentsForClass(classId, rows),
+    );
 }
 
 export function forceDeleteStudents(
