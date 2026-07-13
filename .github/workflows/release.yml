@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build with Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x, 24.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build project
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          echo "Build output:"
+          find .build -maxdepth 2 -type f -print
+
+          test -f .build/Code.js
+          test -f .build/appsscript.json
+          test -f .build/Index.html
+          test -f .build/Admin.html
+          test -f .build/Login.html
+          test -f .build/Setup.html
+
+      - name: Upload release artifact
+        if: matrix.node-version == '24.x'
+        uses: actions/upload-artifact@v7
+        with:
+          name: student-daily-attendance-system-gas
+          path: .build/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: student-daily-attendance-system-gas
+          path: release-build
+
+      - name: Create release ZIP
+        run: |
+          cd release-build
+          zip -r "../student-daily-attendance-system-gas-${GITHUB_REF_NAME}.zip" .
+
+      - name: Generate checksum
+        run: |
+          sha256sum \
+            "student-daily-attendance-system-gas-${GITHUB_REF_NAME}.zip" \
+            > "student-daily-attendance-system-gas-${GITHUB_REF_NAME}.zip.sha256"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "student-daily-attendance-system-gas-${GITHUB_REF_NAME}.zip" \
+            "student-daily-attendance-system-gas-${GITHUB_REF_NAME}.zip.sha256" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag
