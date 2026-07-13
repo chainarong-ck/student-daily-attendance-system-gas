@@ -17,6 +17,7 @@ node_modules/
 .eslintcache
 .prettiercache
 .cache/
+.VSCodeCounter
 
 # OS files
 .DS_Store
