@@ -41,13 +41,20 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Show build output
-        run: find .build -maxdepth 2 -type f -print
+      - name: Verify build output
+        run: |
+          echo "Build output:"
+          find .build -maxdepth 2 -type f -print
+
+          test -f .build/Code.js
+          test -f .build/appsscript.json
+          test -f .build/Index.html
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: student-daily-attendance-gas-build
           path: .build/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
