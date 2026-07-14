@@ -3,6 +3,12 @@ import type {
     AcademicYear,
     AdminBootstrap,
     ClassRoom,
+    ReportTemplate,
+    ReportTemplateConfig,
+    ReportTableColumn,
+    ReportTableDataSource,
+    ReportTableDefinition,
+    ReportType,
     Student,
     StudentGender,
     StudentStatus,
@@ -19,7 +25,13 @@ import {
     showNotice,
 } from "./client-utils";
 
-type AdminTab = "settings" | "years" | "classes" | "students" | "forceDelete";
+type AdminTab =
+    | "settings"
+    | "years"
+    | "classes"
+    | "students"
+    | "reportTemplates"
+    | "forceDelete";
 
 const forceDeleteConfirmText = "ลบถาวร";
 
@@ -34,6 +46,13 @@ let token = "";
 let state: AdminBootstrap;
 let activeAdminTab: AdminTab = "settings";
 let selectedStudentClassId = "";
+let selectedTemplateSourceYearKey = "";
+let sourceReportTemplates: ReportTemplate[] = [];
+let editingTemplateCard: HTMLElement | null = null;
+let editingTemplateConfig: ReportTemplateConfig | null = null;
+let activeTemplateSection: "header" | "content" | "footer" = "header";
+let selectedTemplateTableId = "";
+let lastTemplateEditorRange: Range | null = null;
 
 const panelClass =
     "rounded-lg border border-white/70 bg-white/95 p-5 shadow-xl shadow-slate-200/60";
@@ -77,6 +96,7 @@ function render(): void {
             ${adminTabButton("years", "ปีการศึกษา")}
             ${adminTabButton("classes", "ห้องเรียน")}
             ${adminTabButton("students", "รายชื่อนักเรียน")}
+            ${adminTabButton("reportTemplates", "แบบฟอร์มส่งออก")}
             ${adminTabButton("forceDelete", "บังคับลบข้อมูล")}
         </div>
         <div class="grid gap-5">
@@ -84,6 +104,7 @@ function render(): void {
             <div id="yearsAdminPanel" class="${activeAdminTab === "years" ? "" : "hidden"}">${academicYearPanel()}</div>
             <div id="classesAdminPanel" class="${activeAdminTab === "classes" ? "" : "hidden"}">${classesPanel()}</div>
             <div id="studentsAdminPanel" class="${activeAdminTab === "students" ? "" : "hidden"}">${studentsPanel()}</div>
+            <div id="reportTemplatesAdminPanel" class="${activeAdminTab === "reportTemplates" ? "" : "hidden"}">${reportTemplatesPanel()}</div>
             <div id="forceDeleteAdminPanel" class="${activeAdminTab === "forceDelete" ? "" : "hidden"}">${forceDeletePanel()}</div>
         </div>`,
         {
@@ -98,6 +119,7 @@ function render(): void {
     bindAcademicYears();
     bindClasses();
     bindStudents();
+    bindReportTemplates();
     bindForceDelete();
 }
 
@@ -128,6 +150,7 @@ function activateAdminTab(): void {
             "years",
             "classes",
             "students",
+            "reportTemplates",
             "forceDelete",
         ] as AdminTab[]
     ).forEach((tab) => {
@@ -296,6 +319,1187 @@ function studentsPanel(): string {
         <button id="saveStudentsButton" class="mt-4 ${primaryButtonClass}">บันทึกรายชื่อนักเรียนห้องนี้</button>`,
         currentAcademicYearLabel(),
     );
+}
+
+function reportTemplatesPanel(): string {
+    const currentKey = state.config.currentYear
+        ? `${state.config.currentYear.y}-${state.config.currentYear.t}`
+        : "";
+    const sourceYears = state.config.academicYears.filter(
+        (year) => `${year.y}-${year.t}` !== currentKey,
+    );
+    if (
+        selectedTemplateSourceYearKey &&
+        !sourceYears.some(
+            (year) =>
+                `${year.y}-${year.t}` === selectedTemplateSourceYearKey,
+        )
+    ) {
+        selectedTemplateSourceYearKey = "";
+        sourceReportTemplates = [];
+    }
+    return panel(
+        "แบบฟอร์มส่งออก",
+        `
+        <p class="mb-4 text-sm text-slate-600">เทมเพลตในหน้านี้ถูกเก็บในชีต ReportTemplates ของปีการศึกษาปัจจุบัน การแก้ไขจะไม่กระทบเทมเพลตของปีการศึกษาอื่น</p>
+        <div class="mb-5 rounded-lg border border-sky-200 bg-sky-50/60 p-4">
+            <h3 class="font-semibold text-sky-950">คัดลอกจากปีการศึกษาอื่น</h3>
+            ${
+                sourceYears.length === 0
+                    ? `<p class="mt-2 text-sm text-sky-800">ยังไม่มีปีการศึกษาอื่นสำหรับคัดลอกเทมเพลต</p>`
+                    : `
+                    <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                        <select id="templateSourceYear" class="${fieldClass}">
+                            <option value="">เลือกปีการศึกษาต้นทาง</option>
+                            ${sourceYears
+                                .map((year) => {
+                                    const key = `${year.y}-${year.t}`;
+                                    return `<option value="${escapeHtml(key)}" ${key === selectedTemplateSourceYearKey ? "selected" : ""}>ปีการศึกษา ${year.y} เทอม ${year.t}</option>`;
+                                })
+                                .join("")}
+                        </select>
+                        <button id="loadSourceTemplatesButton" type="button" class="${secondaryButtonClass}">โหลดรายการ</button>
+                    </div>
+                    <div id="sourceTemplateList" class="mt-3">${sourceTemplateListHtml()}</div>`
+            }
+        </div>
+        <div class="mb-3 flex flex-wrap justify-between gap-2">
+            <p class="text-sm text-slate-600">ตั้งค่าเริ่มต้นได้หนึ่งรายการต่อประเภทรายงาน และมีได้ไม่เกิน 30 รายการต่อปีการศึกษา</p>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" data-add-report-template="daily" class="${secondaryButtonClass}">+ รายงานรายวัน</button>
+                <button type="button" data-add-report-template="detailed" class="${secondaryButtonClass}">+ สถิติละเอียด</button>
+            </div>
+        </div>
+        <div id="reportTemplateRows" class="grid gap-4">
+            ${
+                state.reportTemplates.length > 0
+                    ? state.reportTemplates.map(reportTemplateCardHtml).join("")
+                    : `<p id="emptyReportTemplateNotice" class="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">ยังไม่มีเทมเพลตในปีการศึกษานี้ สามารถสร้างใหม่หรือคัดลอกจากปีอื่นได้</p>`
+            }
+        </div>
+        <button id="saveReportTemplatesButton" type="button" class="mt-4 ${primaryButtonClass}">บันทึกเทมเพลต</button>`,
+        currentAcademicYearLabel(),
+    );
+}
+
+function sourceTemplateListHtml(): string {
+    if (!selectedTemplateSourceYearKey) {
+        return `<p class="text-sm text-sky-800">เลือกปีการศึกษาแล้วกดโหลดรายการ</p>`;
+    }
+    if (sourceReportTemplates.length === 0) {
+        return `<p class="text-sm text-sky-800">ปีการศึกษาที่เลือกยังไม่มีเทมเพลต</p>`;
+    }
+    return `
+        <div class="grid gap-2 rounded-md border border-sky-100 bg-white p-3">
+            ${sourceReportTemplates
+                .map(
+                    (template) => `
+                    <label class="flex items-center gap-3 text-sm">
+                        <input type="checkbox" data-source-template-id value="${escapeHtml(template.id)}" />
+                        <span class="font-medium text-slate-900">${escapeHtml(template.name)}</span>
+                        <span class="text-slate-500">${reportTypeLabel(template.reportType)}</span>
+                    </label>`,
+                )
+                .join("")}
+            <div class="mt-2"><button id="copyReportTemplatesButton" type="button" class="${primaryButtonClass} text-sm">คัดลอกที่เลือกมายังปีปัจจุบัน</button></div>
+        </div>`;
+}
+
+function reportTemplateCardHtml(template: ReportTemplate): string {
+    const config = template.config;
+    return `<article data-report-template data-id="${escapeHtml(template.id)}" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <textarea data-field="configJson" class="hidden">${escapeHtml(JSON.stringify(config))}</textarea>
+        <div class="grid gap-3 lg:grid-cols-[1.5fr_1fr_auto_auto_auto]">
+            <div>
+                <label class="mb-1 block text-sm font-medium">ชื่อเทมเพลต</label>
+                <input data-field="name" maxlength="100" value="${escapeHtml(template.name)}" class="${fieldClass}" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">ประเภทรายงาน</label>
+                <select data-field="reportType" class="${fieldClass}">
+                    <option value="daily" ${template.reportType === "daily" ? "selected" : ""}>รายงานรายวัน</option>
+                    <option value="detailed" ${template.reportType === "detailed" ? "selected" : ""}>สถิติละเอียด</option>
+                </select>
+            </div>
+            <label class="text-sm font-medium">สถานะ<select data-field="enabled" class="mt-1 ${fieldClass}"><option value="true" ${template.enabled ? "selected" : ""}>เปิดใช้งาน</option><option value="false" ${template.enabled ? "" : "selected"}>ปิดใช้งาน</option></select></label>
+            <label class="text-sm font-medium">การเลือกใช้<select data-field="isDefault" class="mt-1 ${fieldClass}"><option value="false" ${template.isDefault ? "" : "selected"}>ตัวเลือกทั่วไป</option><option value="true" ${template.isDefault ? "selected" : ""}>ค่าเริ่มต้น</option></select></label>
+            <button type="button" data-delete-report-template class="self-end rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">ลบ</button>
+        </div>
+        <div class="mt-4 flex items-center justify-between gap-3 rounded-md bg-slate-50 p-3"><p class="text-sm text-slate-600">แก้ไขหน้ากระดาษ Header, Content, Footer และตารางทั้งหมดผ่าน Designer</p><button type="button" data-open-template-editor class="${primaryButtonClass}">เปิด Designer และ Preview</button></div>
+        ${template.updatedAt ? `<p class="mt-2 text-right text-xs text-slate-400">แก้ไขล่าสุด ${escapeHtml(template.updatedAt)}</p>` : ""}
+    </article>`;
+}
+
+function checked(value: boolean): string {
+    return value ? "checked" : "";
+}
+
+function reportTypeLabel(reportType: ReportType): string {
+    return reportType === "daily" ? "รายงานรายวัน" : "สถิติละเอียด";
+}
+
+function defaultReportTemplate(reportType: ReportType): ReportTemplate {
+    return {
+        id: "",
+        name:
+            reportType === "daily"
+                ? "แบบฟอร์มรายงานประจำวัน"
+                : "แบบฟอร์มสถิติละเอียด",
+        reportType,
+        isDefault: false,
+        enabled: true,
+        config: defaultReportTemplateConfig(reportType),
+        updatedAt: "",
+    };
+}
+
+function defaultReportTemplateConfig(
+    reportType: ReportType,
+): ReportTemplateConfig {
+    return {
+        orientation: reportType === "daily" ? "portrait" : "landscape",
+        pageMarginMm: 12,
+        fontFamily: "Sarabun, sans-serif",
+        fontSizePt: 11,
+        title:
+            reportType === "daily"
+                ? "รายงานสถิตินักเรียนประจำวัน"
+                : "รายงานสถิติการเข้าเรียนแบบละเอียด",
+        subtitle: "",
+        showLogo: true,
+        showStatusDetails: true,
+        showDutyNotes: reportType === "daily",
+        showSignatures: true,
+        showDraftWatermark: true,
+        sections: {
+            headerHtml:
+                '<div style="text-align:center"><h2>{{school.name}}</h2><p>{{report.title}}</p><p>ปีการศึกษา {{academic.year}} เทอม {{academic.term}}</p></div>',
+            contentHtml:
+                reportType === "daily"
+                    ? '<p>ประจำวันที่ {{report.dateThai}}</p><p>{{table:daily-summary}}</p>'
+                    : '<p>ช่วงวันที่ {{report.dateFromThai}} ถึง {{report.dateToThai}}</p><p>{{table:detailed-students}}</p>',
+            footerHtml:
+                '<div style="text-align:center"><p>ลงชื่อ................................................</p><p>(................................................)</p><p>ผู้รับรองรายงาน</p></div>',
+        },
+        tables: [defaultReportTable(reportType)],
+    };
+}
+
+function defaultReportTable(reportType: ReportType): ReportTableDefinition {
+    if (reportType === "daily") {
+        return {
+            id: "daily-summary",
+            name: "สรุปตามห้องเรียน",
+            dataSource: "daily.classes",
+            showHeader: true,
+            showTotals: true,
+            columns: [
+                reportColumn("class", "ชั้น/ห้อง", "class.name", 20, "left"),
+                reportColumn("students", "นักเรียนทั้งหมด", "students.total", 16),
+                reportColumn("present", "มา", "present.total", 16),
+                reportColumn("absent", "ขาด", "absent.total", 16),
+                reportColumn("late", "สาย", "late.total", 16),
+                reportColumn("leave", "ลา", "leave.total", 16),
+            ],
+        };
+    }
+    return {
+        id: "detailed-students",
+        name: "สถิติรายบุคคล",
+        dataSource: "detailed.students",
+        showHeader: true,
+        showTotals: false,
+        columns: [
+            reportColumn("class", "ห้อง", "class.name", 12),
+            reportColumn("number", "เลขที่", "student.number", 8),
+            reportColumn("name", "ชื่อ-สกุล", "student.fullName", 28, "left"),
+            reportColumn("present", "มา", "present.count", 13),
+            reportColumn("absent", "ขาด", "absent.count", 13),
+            reportColumn("late", "สาย", "late.count", 13),
+            reportColumn("leave", "ลา", "leave.count", 13),
+        ],
+    };
+}
+
+function reportColumn(
+    id: string,
+    header: string,
+    valueToken: string,
+    widthPercent: number,
+    align: ReportTableColumn["align"] = "center",
+): ReportTableColumn {
+    return { id, header, valueToken, widthPercent, align };
+}
+
+type TemplateTokenOption = {
+    token: string;
+    label: string;
+    sample: string;
+    reportTypes?: ReportType[];
+};
+
+const globalTemplateTokens: TemplateTokenOption[] = [
+    { token: "school.name", label: "ชื่อโรงเรียน", sample: "โรงเรียนตัวอย่างวิทยา" },
+    { token: "report.title", label: "หัวข้อรายงาน", sample: "รายงานสถิตินักเรียนประจำวัน" },
+    { token: "report.subtitle", label: "หัวข้อรอง", sample: "รายงานการปฏิบัติหน้าที่เวรประจำวัน" },
+    { token: "report.dateThai", label: "วันที่รายงาน", sample: "14 กรกฎาคม 2569", reportTypes: ["daily"] },
+    { token: "report.dateFromThai", label: "วันที่เริ่มต้น", sample: "1 กรกฎาคม 2569", reportTypes: ["detailed"] },
+    { token: "report.dateToThai", label: "วันที่สิ้นสุด", sample: "31 กรกฎาคม 2569", reportTypes: ["detailed"] },
+    { token: "academic.year", label: "ปีการศึกษา", sample: "2569" },
+    { token: "academic.term", label: "ภาคเรียน", sample: "1" },
+    { token: "generatedAt", label: "วันเวลาที่สร้าง", sample: "14 ก.ค. 2569 15:30 น." },
+];
+
+const tableTokenOptions: Record<ReportTableDataSource, TemplateTokenOption[]> = {
+    "daily.classes": [
+        { token: "class.name", label: "ชั้น/ห้อง", sample: "ม.1/1" },
+        { token: "students.male", label: "นักเรียนชาย", sample: "12" },
+        { token: "students.female", label: "นักเรียนหญิง", sample: "15" },
+        { token: "students.total", label: "นักเรียนรวม", sample: "27" },
+        { token: "present.male", label: "มาชาย", sample: "11" },
+        { token: "present.female", label: "มาหญิง", sample: "14" },
+        { token: "present.total", label: "มารวม", sample: "25" },
+        { token: "absent.male", label: "ขาดชาย", sample: "1" },
+        { token: "absent.female", label: "ขาดหญิง", sample: "0" },
+        { token: "absent.total", label: "ขาดรวม", sample: "1" },
+        { token: "late.male", label: "สายชาย", sample: "0" },
+        { token: "late.female", label: "สายหญิง", sample: "1" },
+        { token: "late.total", label: "สายรวม", sample: "1" },
+        { token: "leave.male", label: "ลาชาย", sample: "0" },
+        { token: "leave.female", label: "ลาหญิง", sample: "0" },
+        { token: "leave.total", label: "ลารวม", sample: "0" },
+        { token: "present.percent", label: "ร้อยละมา", sample: "92.59%" },
+        { token: "absent.percent", label: "ร้อยละขาด", sample: "3.70%" },
+    ],
+    "daily.statusStudents": [
+        { token: "class.name", label: "ชั้น/ห้อง", sample: "ม.1/1" },
+        { token: "student.number", label: "เลขที่", sample: "8" },
+        { token: "student.code", label: "รหัสนักเรียน", sample: "10008" },
+        { token: "student.fullName", label: "ชื่อ-สกุล", sample: "เด็กชายสมชาย ใจดี" },
+        { token: "student.gender", label: "เพศ", sample: "ชาย" },
+        { token: "attendance.status", label: "สถานะ", sample: "ขาด" },
+    ],
+    "detailed.students": [
+        { token: "class.name", label: "ชั้น/ห้อง", sample: "ม.1/1" },
+        { token: "student.number", label: "เลขที่", sample: "8" },
+        { token: "student.code", label: "รหัสนักเรียน", sample: "10008" },
+        { token: "student.fullName", label: "ชื่อ-สกุล", sample: "เด็กชายสมชาย ใจดี" },
+        { token: "student.gender", label: "เพศ", sample: "ชาย" },
+        { token: "present.count", label: "จำนวนวันมา", sample: "18" },
+        { token: "present.percent", label: "ร้อยละมา", sample: "90.00%" },
+        { token: "absent.count", label: "จำนวนวันขาด", sample: "1" },
+        { token: "absent.percent", label: "ร้อยละขาด", sample: "5.00%" },
+        { token: "late.count", label: "จำนวนวันสาย", sample: "1" },
+        { token: "late.percent", label: "ร้อยละสาย", sample: "5.00%" },
+        { token: "leave.count", label: "จำนวนวันลา", sample: "0" },
+        { token: "leave.percent", label: "ร้อยละลา", sample: "0.00%" },
+        { token: "attendance.total", label: "รวมวันที่เช็คชื่อ", sample: "20" },
+    ],
+};
+
+function openReportTemplateEditor(card: HTMLElement): void {
+    const reportType = fieldValue(card, "reportType") as ReportType;
+    editingTemplateCard = card;
+    editingTemplateConfig = parseReportTemplateConfig(
+        fieldValue(card, "configJson"),
+        reportType,
+    );
+    activeTemplateSection = "header";
+    selectedTemplateTableId = editingTemplateConfig.tables[0]?.id ?? "";
+    document.getElementById("reportTemplateEditorModal")?.remove();
+    document.body.insertAdjacentHTML("beforeend", reportTemplateEditorHtml());
+    bindReportTemplateEditor();
+    renderTemplateSectionEditor();
+    renderTableDesigner();
+    renderReportTemplatePreview();
+}
+
+function reportTemplateEditorHtml(): string {
+    const config = editingTemplateConfig;
+    if (!config) {
+        return "";
+    }
+    return `<div id="reportTemplateEditorModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm lg:p-6">
+        <div class="mx-auto max-w-[1700px] overflow-hidden rounded-xl bg-slate-100 shadow-2xl">
+            <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
+                <div><h2 class="text-xl font-bold text-slate-950">ออกแบบเอกสาร</h2><p class="text-sm text-slate-500">แก้ไขแต่ละส่วนแยกกันและตรวจผลบนกระดาษ A4 ทางขวา</p></div>
+                <div class="flex gap-2"><button id="cancelTemplateEditorButton" type="button" class="${secondaryButtonClass}">ยกเลิก</button><button id="applyTemplateEditorButton" type="button" class="${primaryButtonClass}">นำการออกแบบไปใช้</button></div>
+            </header>
+            <div class="grid min-h-[78vh] lg:grid-cols-[minmax(0,1.05fr)_minmax(460px,0.95fr)]">
+                <div class="space-y-4 overflow-y-auto p-4 lg:max-h-[calc(100vh-9rem)]">
+                    ${templatePageSettingsHtml(config)}
+                    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div class="flex border-b border-slate-200 bg-slate-50 p-1">
+                            ${templateSectionTab("header", "Header · หัวกระดาษ")}
+                            ${templateSectionTab("content", "Content · เนื้อหา")}
+                            ${templateSectionTab("footer", "Footer · ท้ายกระดาษ")}
+                        </div>
+                        <div class="p-4">
+                            ${richTextToolbarHtml()}
+                            <div id="templateSectionEditor" contenteditable="true" spellcheck="true" class="report-template-rich-content mt-3 min-h-56 rounded-md border border-slate-300 bg-white p-4 leading-relaxed outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"></div>
+                            <p class="mt-2 text-xs text-slate-500">สามารถพิมพ์ วางข้อความจาก Word และแทรกตัวแปรจากรายการด้านบนได้ เนื้อหาที่เป็น script หรือ event จะถูกตัดออก</p>
+                        </div>
+                    </section>
+                    <section id="templateTableDesignerSection" class="hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 class="font-bold">ตัวออกแบบตาราง</h3><p class="text-sm text-slate-500">กำหนด data source และคอลัมน์ที่คำนวณจากข้อมูลจริง</p></div><button id="addTemplateTableButton" type="button" class="${secondaryButtonClass}">+ เพิ่มตาราง</button></div>
+                        <div id="templateTableDesigner"></div>
+                    </section>
+                </div>
+                <aside class="border-l border-slate-300 bg-slate-200/70 p-4 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto">
+                    <div class="mb-3 flex items-center justify-between"><h3 class="font-bold text-slate-800">Live Preview</h3><span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600">ข้อมูลตัวอย่าง</span></div>
+                    <div id="reportTemplatePreview" class="mx-auto origin-top"></div>
+                </aside>
+            </div>
+        </div>
+    </div>`;
+}
+
+function templatePageSettingsHtml(config: ReportTemplateConfig): string {
+    return `<section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 class="mb-3 font-bold">ตั้งค่าหน้ากระดาษ</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="text-sm font-medium sm:col-span-2">หัวข้อรายงาน<input id="editorReportTitle" maxlength="500" value="${escapeHtml(config.title)}" class="mt-1 ${fieldClass}" /></label>
+            <label class="text-sm font-medium sm:col-span-2">หัวข้อรอง<input id="editorReportSubtitle" maxlength="500" value="${escapeHtml(config.subtitle)}" class="mt-1 ${fieldClass}" /></label>
+            <label class="text-sm font-medium">แนวกระดาษ<select id="editorPageOrientation" class="mt-1 ${fieldClass}"><option value="portrait" ${config.orientation === "portrait" ? "selected" : ""}>แนวตั้ง</option><option value="landscape" ${config.orientation === "landscape" ? "selected" : ""}>แนวนอน</option></select></label>
+            <label class="text-sm font-medium">ระยะขอบ (มม.)<input id="editorPageMargin" type="number" min="5" max="30" value="${config.pageMarginMm}" class="mt-1 ${fieldClass}" /></label>
+            <label class="text-sm font-medium">ฟอนต์<select id="editorFontFamily" class="mt-1 ${fieldClass}">${fontFamilyOptions(config.fontFamily)}</select></label>
+            <label class="text-sm font-medium">ขนาดตัวอักษร (pt)<input id="editorFontSize" type="number" min="8" max="20" value="${config.fontSizePt}" class="mt-1 ${fieldClass}" /></label>
+            <label class="flex items-center gap-2 text-sm font-medium"><input id="editorDraftWatermark" type="checkbox" ${checked(config.showDraftWatermark)} /> แสดงลายน้ำฉบับร่างใน Preview</label>
+        </div>
+    </section>`;
+}
+
+function fontFamilyOptions(selected: string): string {
+    return [
+        ["Sarabun, sans-serif", "Sarabun"],
+        ["Arial, sans-serif", "Arial"],
+        ["Tahoma, sans-serif", "Tahoma"],
+        ["serif", "Serif"],
+        ["monospace", "Monospace"],
+    ]
+        .map(
+            ([value, label]) =>
+                `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`,
+        )
+        .join("");
+}
+
+function templateSectionTab(
+    section: "header" | "content" | "footer",
+    label: string,
+): string {
+    return `<button type="button" data-template-section="${section}" class="flex-1 rounded-md px-3 py-2 text-sm font-semibold transition">${label}</button>`;
+}
+
+function richTextToolbarHtml(): string {
+    const reportType = currentEditingReportType();
+    const availableTokens = globalTemplateTokens.filter(
+        (item) => !item.reportTypes || item.reportTypes.includes(reportType),
+    );
+    return `<div class="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+        <select id="editorBlockFormat" class="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"><option value="p">ย่อหน้าปกติ</option><option value="h1">หัวข้อ 1</option><option value="h2">หัวข้อ 2</option><option value="h3">หัวข้อ 3</option></select>
+        <select id="editorSelectionFontSize" class="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"><option value="">ขนาดข้อความ</option><option value="1">เล็กมาก</option><option value="2">เล็ก</option><option value="3">ปกติ</option><option value="4">ใหญ่</option><option value="5">ใหญ่มาก</option><option value="6">หัวข้อใหญ่</option></select>
+        ${editorCommandButton("bold", "B", "ตัวหนา")}${editorCommandButton("italic", "I", "ตัวเอียง")}${editorCommandButton("underline", "U", "ขีดเส้นใต้")}
+        ${editorCommandButton("justifyLeft", "ชิดซ้าย")}${editorCommandButton("justifyCenter", "กึ่งกลาง")}${editorCommandButton("justifyRight", "ชิดขวา")}
+        ${editorCommandButton("insertUnorderedList", "• รายการ")}${editorCommandButton("insertOrderedList", "1. รายการ")}
+        <input id="editorTextColor" type="color" value="#0f172a" title="สีตัวอักษร" class="h-8 w-10 rounded border border-slate-200 bg-white p-1" />
+        <select id="editorGlobalToken" class="min-w-48 rounded border border-slate-200 bg-white px-2 py-1.5 text-sm"><option value="">แทรกตัวแปรข้อมูล...</option>${availableTokens.map((item) => `<option value="${item.token}">${item.label} · {{${item.token}}}</option>`).join("")}</select>
+    </div>`;
+}
+
+function currentEditingReportType(): ReportType {
+    return fieldValue(editingTemplateCard ?? document, "reportType") ===
+        "detailed"
+        ? "detailed"
+        : "daily";
+}
+
+function editorCommandButton(
+    command: string,
+    label: string,
+    title = label,
+): string {
+    return `<button type="button" data-editor-command="${command}" title="${title}" class="rounded border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold hover:bg-teal-50">${label}</button>`;
+}
+
+function bindReportTemplateEditor(): void {
+    document
+        .getElementById("cancelTemplateEditorButton")
+        ?.addEventListener("click", closeReportTemplateEditor);
+    document
+        .getElementById("applyTemplateEditorButton")
+        ?.addEventListener("click", applyReportTemplateEditor);
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-template-section]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                syncTemplateSectionFromEditor();
+                activeTemplateSection = (button.dataset.templateSection ??
+                    "header") as typeof activeTemplateSection;
+                renderTemplateSectionEditor();
+            });
+        });
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-editor-command]")
+        .forEach((button) => {
+            button.addEventListener("mousedown", (event) => {
+                event.preventDefault();
+                document.execCommand(button.dataset.editorCommand ?? "", false);
+                syncTemplateSectionFromEditor();
+                renderReportTemplatePreview();
+            });
+        });
+    document
+        .getElementById("editorBlockFormat")
+        ?.addEventListener("change", (event) => {
+            const select = event.target as HTMLSelectElement;
+            restoreTemplateEditorSelection();
+            document.execCommand("formatBlock", false, select.value);
+            syncTemplateSectionFromEditor();
+            renderReportTemplatePreview();
+        });
+    document
+        .getElementById("editorSelectionFontSize")
+        ?.addEventListener("change", (event) => {
+            const select = event.target as HTMLSelectElement;
+            if (select.value) {
+                restoreTemplateEditorSelection();
+                document.execCommand("fontSize", false, select.value);
+                select.value = "";
+                syncTemplateSectionFromEditor();
+                renderReportTemplatePreview();
+            }
+        });
+    document
+        .getElementById("editorTextColor")
+        ?.addEventListener("input", (event) => {
+            restoreTemplateEditorSelection();
+            document.execCommand(
+                "foreColor",
+                false,
+                (event.target as HTMLInputElement).value,
+            );
+            syncTemplateSectionFromEditor();
+            renderReportTemplatePreview();
+        });
+    document
+        .getElementById("editorGlobalToken")
+        ?.addEventListener("change", (event) => {
+            const select = event.target as HTMLSelectElement;
+            if (select.value) {
+                insertTextAtEditorSelection(`{{${select.value}}}`);
+                select.value = "";
+            }
+        });
+    document
+        .getElementById("templateSectionEditor")
+        ?.addEventListener("input", () => {
+            captureTemplateEditorSelection();
+            syncTemplateSectionFromEditor();
+            renderReportTemplatePreview();
+        });
+    ["keyup", "mouseup"].forEach((eventName) => {
+        document
+            .getElementById("templateSectionEditor")
+            ?.addEventListener(eventName, captureTemplateEditorSelection);
+    });
+    [
+        "editorReportTitle",
+        "editorReportSubtitle",
+        "editorPageOrientation",
+        "editorPageMargin",
+        "editorFontFamily",
+        "editorFontSize",
+        "editorDraftWatermark",
+    ].forEach((id) => {
+        document.getElementById(id)?.addEventListener("input", () => {
+            syncTemplatePageSettings();
+            renderReportTemplatePreview();
+        });
+    });
+    document
+        .getElementById("addTemplateTableButton")
+        ?.addEventListener("click", addTemplateTable);
+    document
+        .getElementById("templateTableDesigner")
+        ?.addEventListener("input", handleTableDesignerInput);
+    document
+        .getElementById("templateTableDesigner")
+        ?.addEventListener("change", handleTableDesignerChange);
+    document
+        .getElementById("templateTableDesigner")
+        ?.addEventListener("click", handleTableDesignerClick);
+}
+
+function closeReportTemplateEditor(): void {
+    document.getElementById("reportTemplateEditorModal")?.remove();
+    editingTemplateCard = null;
+    editingTemplateConfig = null;
+    lastTemplateEditorRange = null;
+}
+
+function applyReportTemplateEditor(): void {
+    if (!editingTemplateCard || !editingTemplateConfig) {
+        return;
+    }
+    syncTemplateSectionFromEditor();
+    syncTemplatePageSettings();
+    syncSelectedTableFromDesigner();
+    const configField = editingTemplateCard.querySelector<HTMLTextAreaElement>(
+        '[data-field="configJson"]',
+    );
+    if (configField) {
+        configField.value = JSON.stringify(editingTemplateConfig);
+    }
+    closeReportTemplateEditor();
+    showNotice(
+        "adminNotice",
+        "นำการออกแบบมาใช้ในแบบฟอร์มแล้ว กรุณากดบันทึกเทมเพลตเพื่อบันทึกลง Sheet",
+        "info",
+    );
+}
+
+function renderTemplateSectionEditor(): void {
+    const config = editingTemplateConfig;
+    const editor = document.getElementById("templateSectionEditor");
+    if (!config || !editor) {
+        return;
+    }
+    editor.innerHTML = sanitizeTemplateHtml(sectionHtml(config));
+    lastTemplateEditorRange = null;
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-template-section]")
+        .forEach((button) => {
+            const active = button.dataset.templateSection === activeTemplateSection;
+            button.className = `flex-1 rounded-md px-3 py-2 text-sm font-semibold transition ${active ? "bg-orange-600 text-white" : "text-slate-600 hover:bg-white"}`;
+        });
+    document
+        .getElementById("templateTableDesignerSection")
+        ?.classList.toggle("hidden", activeTemplateSection !== "content");
+    renderReportTemplatePreview();
+}
+
+function sectionHtml(config: ReportTemplateConfig): string {
+    if (activeTemplateSection === "content") {
+        return config.sections.contentHtml;
+    }
+    if (activeTemplateSection === "footer") {
+        return config.sections.footerHtml;
+    }
+    return config.sections.headerHtml;
+}
+
+function syncTemplateSectionFromEditor(): void {
+    const config = editingTemplateConfig;
+    const editor = document.getElementById("templateSectionEditor");
+    if (!config || !editor) {
+        return;
+    }
+    const html = sanitizeTemplateHtml(editor.innerHTML);
+    if (activeTemplateSection === "content") {
+        config.sections.contentHtml = html;
+    } else if (activeTemplateSection === "footer") {
+        config.sections.footerHtml = html;
+    } else {
+        config.sections.headerHtml = html;
+    }
+}
+
+function syncTemplatePageSettings(): void {
+    const config = editingTemplateConfig;
+    if (!config) {
+        return;
+    }
+    config.orientation =
+        (document.getElementById("editorPageOrientation") as HTMLSelectElement)
+            .value === "landscape"
+            ? "landscape"
+            : "portrait";
+    config.title = (
+        document.getElementById("editorReportTitle") as HTMLInputElement
+    ).value.trim();
+    config.subtitle = (
+        document.getElementById("editorReportSubtitle") as HTMLInputElement
+    ).value.trim();
+    config.pageMarginMm = numberInputValue("editorPageMargin", 5, 30, 12);
+    config.fontFamily = (
+        document.getElementById("editorFontFamily") as HTMLSelectElement
+    ).value;
+    config.fontSizePt = numberInputValue("editorFontSize", 8, 20, 11);
+    config.showDraftWatermark =
+        (
+            document.getElementById(
+                "editorDraftWatermark",
+            ) as HTMLInputElement | null
+        )?.checked ?? true;
+}
+
+function numberInputValue(
+    id: string,
+    min: number,
+    max: number,
+    fallback: number,
+): number {
+    const value = Number(
+        (document.getElementById(id) as HTMLInputElement | null)?.value,
+    );
+    return Number.isFinite(value) && value >= min && value <= max
+        ? value
+        : fallback;
+}
+
+function insertTextAtEditorSelection(text: string): void {
+    const editor = document.getElementById("templateSectionEditor");
+    if (!editor) {
+        return;
+    }
+    insertNodeAtEditorSelection(document.createTextNode(text));
+    syncTemplateSectionFromEditor();
+    renderReportTemplatePreview();
+}
+
+function insertHtmlAtEditorSelection(html: string): void {
+    const template = document.createElement("template");
+    template.innerHTML = sanitizeTemplateHtml(html);
+    insertNodeAtEditorSelection(template.content);
+    syncTemplateSectionFromEditor();
+    renderReportTemplatePreview();
+}
+
+function insertNodeAtEditorSelection(node: Node): void {
+    const editor = document.getElementById("templateSectionEditor");
+    if (!editor) {
+        return;
+    }
+    editor.focus();
+    const range = lastTemplateEditorRange?.cloneRange();
+    if (range && editor.contains(range.commonAncestorContainer)) {
+        range.deleteContents();
+        range.insertNode(node);
+        range.collapse(false);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        lastTemplateEditorRange = range.cloneRange();
+        return;
+    }
+    editor.append(node);
+    captureTemplateEditorSelection();
+}
+
+function captureTemplateEditorSelection(): void {
+    const editor = document.getElementById("templateSectionEditor");
+    const selection = window.getSelection();
+    if (
+        editor &&
+        selection &&
+        selection.rangeCount > 0 &&
+        editor.contains(selection.getRangeAt(0).commonAncestorContainer)
+    ) {
+        lastTemplateEditorRange = selection.getRangeAt(0).cloneRange();
+    }
+}
+
+function restoreTemplateEditorSelection(): void {
+    if (!lastTemplateEditorRange) {
+        return;
+    }
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(lastTemplateEditorRange);
+}
+
+function renderTableDesigner(): void {
+    const container = document.getElementById("templateTableDesigner");
+    const config = editingTemplateConfig;
+    if (!container || !config) {
+        return;
+    }
+    if (
+        selectedTemplateTableId &&
+        !config.tables.some((table) => table.id === selectedTemplateTableId)
+    ) {
+        selectedTemplateTableId = config.tables[0]?.id ?? "";
+    }
+    const selected = selectedReportTable();
+    container.innerHTML = `
+        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <select id="templateTableSelect" class="${fieldClass}">
+                ${
+                    config.tables.length > 0
+                        ? config.tables
+                              .map(
+                                  (table) =>
+                                      `<option value="${escapeHtml(table.id)}" ${table.id === selectedTemplateTableId ? "selected" : ""}>${escapeHtml(table.name)}</option>`,
+                              )
+                              .join("")
+                        : `<option value="">ยังไม่มีตาราง</option>`
+                }
+            </select>
+            <div class="flex gap-2"><button type="button" data-insert-table-token class="${secondaryButtonClass}" ${selected ? "" : "disabled"}>แทรกตารางใน Content</button><button type="button" data-delete-template-table class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100" ${selected ? "" : "disabled"}>ลบตาราง</button></div>
+        </div>
+        ${selected ? reportTableFormHtml(selected) : `<p class="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">กด “เพิ่มตาราง” เพื่อสร้างตารางใหม่</p>`}`;
+}
+
+function reportTableFormHtml(table: ReportTableDefinition): string {
+    return `<div class="mt-4 space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label class="text-sm font-medium">ชื่อตาราง<input data-table-field="name" value="${escapeHtml(table.name)}" class="mt-1 ${fieldClass}" /></label>
+            <label class="text-sm font-medium">รหัสตาราง<input value="${escapeHtml(table.id)}" disabled class="mt-1 ${fieldClass} bg-slate-100" /></label>
+            <label class="text-sm font-medium">แหล่งข้อมูล<select data-table-field="dataSource" class="mt-1 ${fieldClass}">${tableDataSourceOptions(table.dataSource)}</select></label>
+        </div>
+        <div class="flex flex-wrap gap-5 rounded-md bg-slate-50 p-3 text-sm"><label class="flex items-center gap-2"><input data-table-field="showHeader" type="checkbox" ${checked(table.showHeader)} /> แสดงหัวตาราง</label><label class="flex items-center gap-2"><input data-table-field="showTotals" type="checkbox" ${checked(table.showTotals)} /> แสดงแถวรวม</label></div>
+        <div>
+            <div class="mb-2 flex items-center justify-between"><div><h4 class="font-semibold">คอลัมน์</h4><p class="text-xs text-slate-500">เลือกค่าที่ระบบเตรียมไว้ ความกว้างเป็นสัดส่วนเปอร์เซ็นต์ของตาราง</p></div><button type="button" data-add-table-column class="${secondaryButtonClass}">+ คอลัมน์</button></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[780px] text-sm"><thead class="${tableHeadClass}"><tr><th class="p-2">หัวคอลัมน์</th><th class="p-2">ข้อมูล/สูตรคำนวณ</th><th class="p-2 w-24">กว้าง %</th><th class="p-2 w-28">จัดแนว</th><th class="p-2 w-36"></th></tr></thead><tbody>${table.columns.map((column, index) => reportTableColumnRowHtml(column, table.dataSource, index)).join("")}</tbody></table></div>
+        </div>
+        <div class="rounded-md border border-teal-100 bg-teal-50 p-3"><h4 class="text-sm font-semibold text-teal-900">Token ของตารางนี้</h4><code class="mt-1 block text-sm text-teal-800">{{table:${escapeHtml(table.id)}}}</code></div>
+    </div>`;
+}
+
+function tableDataSourceOptions(selected: ReportTableDataSource): string {
+    const options: Array<[ReportTableDataSource, string]> = [
+        ["daily.classes", "ภาพรวมรายวัน · สรุปตามห้อง"],
+        ["daily.statusStudents", "ภาพรวมรายวัน · รายชื่อนักเรียนตามสถานะ"],
+        ["detailed.students", "สถิติละเอียด · รายบุคคล"],
+    ];
+    return options
+        .map(
+            ([value, label]) =>
+                `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`,
+        )
+        .join("");
+}
+
+function reportTableColumnRowHtml(
+    column: ReportTableColumn,
+    dataSource: ReportTableDataSource,
+    index: number,
+): string {
+    return `<tr data-table-column data-id="${escapeHtml(column.id)}" class="border-b border-slate-100">
+        <td class="p-2"><input data-column-field="header" value="${escapeHtml(column.header)}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><select data-column-field="valueToken" class="${compactFieldClass}">${tableTokenOptions[dataSource].map((item) => `<option value="${item.token}" ${item.token === column.valueToken ? "selected" : ""}>${item.label} · ${item.token}</option>`).join("")}</select></td>
+        <td class="p-2"><input data-column-field="widthPercent" type="number" min="1" max="100" value="${column.widthPercent}" class="${compactFieldClass}" /></td>
+        <td class="p-2"><select data-column-field="align" class="${compactFieldClass}"><option value="left" ${column.align === "left" ? "selected" : ""}>ซ้าย</option><option value="center" ${column.align === "center" ? "selected" : ""}>กลาง</option><option value="right" ${column.align === "right" ? "selected" : ""}>ขวา</option></select></td>
+        <td class="p-2"><div class="flex justify-end gap-1"><button type="button" data-move-column="up" data-index="${index}" class="rounded bg-slate-100 px-2 py-1" title="เลื่อนขึ้น">↑</button><button type="button" data-move-column="down" data-index="${index}" class="rounded bg-slate-100 px-2 py-1" title="เลื่อนลง">↓</button><button type="button" data-delete-table-column data-index="${index}" class="rounded bg-red-50 px-2 py-1 font-semibold text-red-700">ลบ</button></div></td>
+    </tr>`;
+}
+
+function selectedReportTable(): ReportTableDefinition | null {
+    return (
+        editingTemplateConfig?.tables.find(
+            (table) => table.id === selectedTemplateTableId,
+        ) ?? null
+    );
+}
+
+function addTemplateTable(): void {
+    const config = editingTemplateConfig;
+    if (!config) {
+        return;
+    }
+    syncSelectedTableFromDesigner();
+    if (config.tables.length >= 10) {
+        window.alert("เพิ่มตารางได้ไม่เกิน 10 ตารางต่อเทมเพลต");
+        return;
+    }
+    const id = `table-${Date.now().toString(36)}`;
+    const dataSource: ReportTableDataSource =
+        fieldValue(editingTemplateCard ?? document, "reportType") === "detailed"
+            ? "detailed.students"
+            : "daily.classes";
+    const token = tableTokenOptions[dataSource][0];
+    config.tables.push({
+        id,
+        name: `ตาราง ${config.tables.length + 1}`,
+        dataSource,
+        showHeader: true,
+        showTotals: false,
+        columns: [
+            reportColumn(
+                `col-${Date.now().toString(36)}`,
+                token.label,
+                token.token,
+                100,
+            ),
+        ],
+    });
+    selectedTemplateTableId = id;
+    renderTableDesigner();
+    renderReportTemplatePreview();
+}
+
+function handleTableDesignerInput(): void {
+    syncSelectedTableFromDesigner();
+    renderReportTemplatePreview();
+}
+
+function handleTableDesignerChange(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target.id === "templateTableSelect") {
+        syncSelectedTableFromDesigner();
+        selectedTemplateTableId = (target as HTMLSelectElement).value;
+        renderTableDesigner();
+        return;
+    }
+    syncSelectedTableFromDesigner();
+    if (target.matches('[data-table-field="dataSource"]')) {
+        const table = selectedReportTable();
+        if (table) {
+            const firstToken = tableTokenOptions[table.dataSource][0];
+            table.columns.forEach((column) => {
+                if (
+                    !tableTokenOptions[table.dataSource].some(
+                        (option) => option.token === column.valueToken,
+                    )
+                ) {
+                    column.valueToken = firstToken.token;
+                }
+            });
+        }
+        renderTableDesigner();
+    }
+    renderReportTemplatePreview();
+}
+
+function handleTableDesignerClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    const config = editingTemplateConfig;
+    const table = selectedReportTable();
+    if (!config || !table) {
+        return;
+    }
+    syncSelectedTableFromDesigner();
+    if (target.matches("[data-insert-table-token]")) {
+        insertHtmlAtEditorSelection(`<p>{{table:${escapeHtml(table.id)}}}</p>`);
+    } else if (target.matches("[data-delete-template-table]")) {
+        if (!window.confirm(`ลบตาราง “${table.name}” ใช่หรือไม่`)) {
+            return;
+        }
+        config.tables = config.tables.filter((row) => row.id !== table.id);
+        selectedTemplateTableId = config.tables[0]?.id ?? "";
+        renderTableDesigner();
+    } else if (target.matches("[data-add-table-column]")) {
+        if (table.columns.length >= 20) {
+            window.alert("เพิ่มได้ไม่เกิน 20 คอลัมน์ต่อตาราง");
+            return;
+        }
+        const option = tableTokenOptions[table.dataSource][0];
+        table.columns.push(
+            reportColumn(
+                `col-${Date.now().toString(36)}`,
+                option.label,
+                option.token,
+                10,
+            ),
+        );
+        renderTableDesigner();
+    } else if (target.matches("[data-delete-table-column]")) {
+        const index = Number(target.dataset.index);
+        if (table.columns.length <= 1) {
+            window.alert("ตารางต้องมีอย่างน้อย 1 คอลัมน์");
+            return;
+        }
+        table.columns.splice(index, 1);
+        renderTableDesigner();
+    } else if (target.matches("[data-move-column]")) {
+        const index = Number(target.dataset.index);
+        const nextIndex =
+            target.dataset.moveColumn === "up" ? index - 1 : index + 1;
+        if (nextIndex >= 0 && nextIndex < table.columns.length) {
+            [table.columns[index], table.columns[nextIndex]] = [
+                table.columns[nextIndex],
+                table.columns[index],
+            ];
+            renderTableDesigner();
+        }
+    }
+    renderReportTemplatePreview();
+}
+
+function syncSelectedTableFromDesigner(): void {
+    const table = selectedReportTable();
+    const container = document.getElementById("templateTableDesigner");
+    if (!table || !container) {
+        return;
+    }
+    const nameInput = container.querySelector<HTMLInputElement>(
+        '[data-table-field="name"]',
+    );
+    const sourceSelect = container.querySelector<HTMLSelectElement>(
+        '[data-table-field="dataSource"]',
+    );
+    table.name = nameInput?.value.trim() || table.name;
+    table.dataSource = (sourceSelect?.value ??
+        table.dataSource) as ReportTableDataSource;
+    table.showHeader =
+        container.querySelector<HTMLInputElement>(
+            '[data-table-field="showHeader"]',
+        )?.checked ?? false;
+    table.showTotals =
+        container.querySelector<HTMLInputElement>(
+            '[data-table-field="showTotals"]',
+        )?.checked ?? false;
+    table.columns = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-table-column]"),
+    ).map((row) => ({
+        id: row.dataset.id ?? `col-${Date.now().toString(36)}`,
+        header:
+            row.querySelector<HTMLInputElement>('[data-column-field="header"]')
+                ?.value.trim() ?? "",
+        valueToken:
+            row.querySelector<HTMLSelectElement>(
+                '[data-column-field="valueToken"]',
+            )?.value ?? tableTokenOptions[table.dataSource][0].token,
+        widthPercent: Math.max(
+            1,
+            Math.min(
+                100,
+                Number(
+                    row.querySelector<HTMLInputElement>(
+                        '[data-column-field="widthPercent"]',
+                    )?.value ?? 10,
+                ),
+            ),
+        ),
+        align: (row.querySelector<HTMLSelectElement>(
+            '[data-column-field="align"]',
+        )?.value ?? "center") as ReportTableColumn["align"],
+    }));
+}
+
+function renderReportTemplatePreview(): void {
+    const preview = document.getElementById("reportTemplatePreview");
+    const config = editingTemplateConfig;
+    if (!preview || !config) {
+        return;
+    }
+    const landscape = config.orientation === "landscape";
+    const maxWidth = landscape ? 960 : 700;
+    const aspectRatio = landscape ? "297 / 210" : "210 / 297";
+    const paddingPx = Math.round(config.pageMarginMm * 2.7);
+    preview.innerHTML = `<div style="position:relative;width:min(100%,${maxWidth}px);min-height:${landscape ? 610 : 920}px;aspect-ratio:${aspectRatio};margin:0 auto;padding:${paddingPx}px;background:#fff;color:#0f172a;box-shadow:0 12px 35px rgba(15,23,42,.18);font-family:${escapeHtml(config.fontFamily)};font-size:${config.fontSizePt}pt;line-height:1.45;display:flex;flex-direction:column;overflow:hidden">
+        ${config.showDraftWatermark ? '<div style="position:absolute;inset:42% 0 auto;transform:rotate(-28deg);text-align:center;font-size:48px;font-weight:700;color:rgba(148,163,184,.18);pointer-events:none">ฉบับร่าง · PREVIEW</div>' : ""}
+        <header class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("HEADER")}${renderPreviewRegion(config.sections.headerHtml)}</header>
+        <main class="report-template-rich-content" style="position:relative;flex:1;border-left:1px dashed #e2e8f0;border-right:1px dashed #e2e8f0;padding:10px 8px">${previewSectionLabel("CONTENT")}${renderPreviewRegion(config.sections.contentHtml)}</main>
+        <footer class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("FOOTER")}${renderPreviewRegion(config.sections.footerHtml)}</footer>
+    </div>`;
+}
+
+function previewSectionLabel(label: string): string {
+    return `<span style="position:absolute;top:2px;right:4px;color:#94a3b8;font:600 8px Arial,sans-serif;letter-spacing:.08em">${label}</span>`;
+}
+
+function renderPreviewRegion(sourceHtml: string): string {
+    const config = editingTemplateConfig;
+    if (!config) {
+        return "";
+    }
+    let html = sanitizeTemplateHtml(sourceHtml);
+    config.tables.forEach((table) => {
+        const tokenPattern = escapeRegExp(`{{table:${table.id}}}`);
+        const tableHtml = sampleReportTableHtml(table);
+        html = html.replace(
+            new RegExp(`<p[^>]*>\\s*${tokenPattern}\\s*</p>`, "gi"),
+            tableHtml,
+        );
+        html = html.replace(new RegExp(tokenPattern, "g"), tableHtml);
+    });
+    const applicableTokens = globalTemplateTokens.filter(
+        (item) =>
+            !item.reportTypes ||
+            item.reportTypes.includes(currentEditingReportType()),
+    );
+    const samples = new Map(
+        applicableTokens.map((item) => [item.token, item.sample]),
+    );
+    const currentYear = state.config.currentYear;
+    samples.set(
+        "school.name",
+        state.config.schoolName || "ยังไม่ได้ตั้งชื่อโรงเรียน",
+    );
+    samples.set("report.title", config.title);
+    samples.set("report.subtitle", config.subtitle);
+    samples.set("academic.year", String(currentYear?.y ?? "-"));
+    samples.set("academic.term", String(currentYear?.t ?? "-"));
+    samples.set(
+        "generatedAt",
+        new Intl.DateTimeFormat("th-TH", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Bangkok",
+        }).format(new Date()),
+    );
+    applicableTokens.forEach((item) => {
+        html = html.replace(
+            new RegExp(escapeRegExp(`{{${item.token}}}`), "g"),
+            escapeHtml(samples.get(item.token) ?? item.sample),
+        );
+    });
+    return html.replace(
+        /{{\s*([^{}]+)\s*}}/g,
+        '<span style="border-radius:3px;background:#fef3c7;color:#92400e;padding:1px 3px;font:600 9px monospace">{{$1}}</span>',
+    );
+}
+
+function sampleReportTableHtml(table: ReportTableDefinition): string {
+    const options = tableTokenOptions[table.dataSource];
+    const base = Object.fromEntries(
+        options.map((item) => [item.token, item.sample]),
+    ) as Record<string, string>;
+    const rows: Array<Record<string, string>> = [0, 1, 2].map(
+        (index) => ({
+            ...base,
+            "class.name": ["ม.1/1", "ม.1/2", "ม.2/1"][index],
+            "student.number": String(index + 1),
+            "student.code": String(10001 + index),
+            "student.fullName": [
+                "เด็กชายสมชาย ใจดี",
+                "เด็กหญิงสมหญิง ตั้งใจ",
+                "เด็กชายขยัน เรียนดี",
+            ][index],
+        }),
+    );
+    const head = table.showHeader
+        ? `<thead><tr>${table.columns.map((column) => `<th style="border:1px solid #64748b;background:#f1f5f9;padding:4px;text-align:${column.align};width:${column.widthPercent}%">${escapeHtml(column.header)}</th>`).join("")}</tr></thead>`
+        : "";
+    const body = rows
+        .map(
+            (row) =>
+                `<tr>${table.columns.map((column) => `<td style="border:1px solid #64748b;padding:4px;text-align:${column.align}">${escapeHtml(row[column.valueToken] ?? `{{${column.valueToken}}}`)}</td>`).join("")}</tr>`,
+        )
+        .join("");
+    const total = table.showTotals
+        ? `<tfoot><tr>${table.columns.map((column, index) => `<td style="border:1px solid #64748b;background:#f8fafc;padding:4px;text-align:${column.align};font-weight:700">${index === 0 ? "รวม" : sampleTotalValue(column.valueToken)}</td>`).join("")}</tr></tfoot>`
+        : "";
+    return `<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:.88em;table-layout:fixed">${head}<tbody>${body}</tbody>${total}</table>`;
+}
+
+function sampleTotalValue(token: string): string {
+    if (token.includes("percent")) {
+        return "91.36%";
+    }
+    if (token === "students.total") {
+        return "81";
+    }
+    if (/\.(total|count)$/.test(token)) {
+        return "3";
+    }
+    return "";
+}
+
+function sanitizeTemplateHtml(html: string): string {
+    const parser = new DOMParser();
+    const documentFragment = parser.parseFromString(
+        `<body>${html}</body>`,
+        "text/html",
+    );
+    const allowedTags = new Set([
+        "P",
+        "DIV",
+        "SPAN",
+        "BR",
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "STRONG",
+        "B",
+        "EM",
+        "I",
+        "U",
+        "S",
+        "UL",
+        "OL",
+        "LI",
+        "BLOCKQUOTE",
+        "TABLE",
+        "THEAD",
+        "TBODY",
+        "TFOOT",
+        "TR",
+        "TH",
+        "TD",
+        "A",
+        "FONT",
+    ]);
+    const allowedStyles = new Set([
+        "text-align",
+        "font-weight",
+        "font-style",
+        "text-decoration",
+        "color",
+        "background-color",
+        "font-size",
+        "font-family",
+        "margin-left",
+    ]);
+    Array.from(documentFragment.body.querySelectorAll<HTMLElement>("*"))
+        .reverse()
+        .forEach((element) => {
+            if (!allowedTags.has(element.tagName)) {
+                element.replaceWith(...Array.from(element.childNodes));
+                return;
+            }
+            Array.from(element.attributes).forEach((attribute) => {
+                if (
+                    attribute.name !== "style" &&
+                    attribute.name !== "colspan" &&
+                    attribute.name !== "rowspan" &&
+                    attribute.name !== "href" &&
+                    attribute.name !== "size" &&
+                    attribute.name !== "color"
+                ) {
+                    element.removeAttribute(attribute.name);
+                }
+            });
+            if (element.hasAttribute("href")) {
+                const href = element.getAttribute("href") ?? "";
+                if (!/^(https?:|mailto:)/i.test(href)) {
+                    element.removeAttribute("href");
+                } else {
+                    element.setAttribute("rel", "noopener noreferrer");
+                    element.setAttribute("target", "_blank");
+                }
+            }
+            if (
+                element.hasAttribute("size") &&
+                !/^[1-7]$/.test(element.getAttribute("size") ?? "")
+            ) {
+                element.removeAttribute("size");
+            }
+            if (
+                element.hasAttribute("color") &&
+                !/^(#[0-9a-f]{3,8}|[a-z]+)$/i.test(
+                    element.getAttribute("color") ?? "",
+                )
+            ) {
+                element.removeAttribute("color");
+            }
+            const safeStyles: string[] = [];
+            Array.from(element.style).forEach((property) => {
+                if (!allowedStyles.has(property)) {
+                    return;
+                }
+                const value = element.style.getPropertyValue(property);
+                if (!/url\s*\(|expression\s*\(|javascript\s*:/i.test(value)) {
+                    safeStyles.push(`${property}:${value}`);
+                }
+            });
+            if (safeStyles.length > 0) {
+                element.setAttribute("style", safeStyles.join(";"));
+            } else {
+                element.removeAttribute("style");
+            }
+        });
+    return documentFragment.body.innerHTML;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function forceDeletePanel(): string {
@@ -519,6 +1723,173 @@ function bindStudents(): void {
             ) as HTMLButtonElement;
             void saveStudents(button);
         });
+}
+
+function bindReportTemplates(): void {
+    document
+        .querySelectorAll<HTMLButtonElement>("[data-add-report-template]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                const reportType: ReportType =
+                    button.dataset.addReportTemplate === "detailed"
+                        ? "detailed"
+                        : "daily";
+                document.getElementById("emptyReportTemplateNotice")?.remove();
+                document
+                    .getElementById("reportTemplateRows")
+                    ?.insertAdjacentHTML(
+                        "beforeend",
+                        reportTemplateCardHtml(
+                            defaultReportTemplate(reportType),
+                        ),
+                    );
+            });
+        });
+    const rows = document.getElementById("reportTemplateRows");
+    rows?.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement;
+        if (target.matches("[data-open-template-editor]")) {
+            const card = target.closest<HTMLElement>(
+                "[data-report-template]",
+            );
+            if (card) {
+                openReportTemplateEditor(card);
+            }
+            return;
+        }
+        if (target.matches("[data-delete-report-template]")) {
+            target.closest<HTMLElement>("[data-report-template]")?.remove();
+        }
+    });
+    rows?.addEventListener("change", (event) => {
+        const target = event.target as HTMLInputElement | HTMLSelectElement;
+        if (
+            target.dataset.field !== "isDefault" &&
+            target.dataset.field !== "reportType"
+        ) {
+            return;
+        }
+        const card = target.closest<HTMLElement>("[data-report-template]");
+        if (!card || fieldValue(card, "isDefault") !== "true") {
+            return;
+        }
+        const reportType = fieldValue(card, "reportType") as ReportType;
+        document
+            .querySelectorAll<HTMLElement>("[data-report-template]")
+            .forEach((otherCard) => {
+                if (
+                    otherCard !== card &&
+                    fieldValue(otherCard, "reportType") === reportType
+                ) {
+                    const otherDefault =
+                        otherCard.querySelector<HTMLSelectElement>(
+                            '[data-field="isDefault"]',
+                        );
+                    if (otherDefault) {
+                        otherDefault.value = "false";
+                    }
+                }
+            });
+    });
+    document
+        .getElementById("saveReportTemplatesButton")
+        ?.addEventListener("click", () => {
+            const button = document.getElementById(
+                "saveReportTemplatesButton",
+            ) as HTMLButtonElement;
+            void saveReportTemplates(button);
+        });
+    document
+        .getElementById("loadSourceTemplatesButton")
+        ?.addEventListener("click", () => {
+            const button = document.getElementById(
+                "loadSourceTemplatesButton",
+            ) as HTMLButtonElement;
+            void loadSourceReportTemplates(button);
+        });
+    document
+        .getElementById("sourceTemplateList")
+        ?.addEventListener("click", (event) => {
+            const target = event.target as HTMLElement;
+            if (!target.matches("#copyReportTemplatesButton")) {
+                return;
+            }
+            void copySelectedReportTemplates(target as HTMLButtonElement);
+        });
+}
+
+async function loadSourceReportTemplates(
+    button: HTMLButtonElement,
+): Promise<void> {
+    const sourceSelect = document.getElementById(
+        "templateSourceYear",
+    ) as HTMLSelectElement;
+    selectedTemplateSourceYearKey = sourceSelect.value;
+    if (!selectedTemplateSourceYearKey) {
+        showNotice(
+            "adminNotice",
+            "กรุณาเลือกปีการศึกษาต้นทาง",
+            "error",
+        );
+        return;
+    }
+    setBusy(button, true, "กำลังโหลด...");
+    try {
+        sourceReportTemplates = await googleScriptRun(
+            "getReportTemplatesForAcademicYear",
+            token,
+            selectedTemplateSourceYearKey,
+        );
+        const list = document.getElementById("sourceTemplateList");
+        if (list) {
+            list.innerHTML = sourceTemplateListHtml();
+        }
+    } catch (error) {
+        showNotice("adminNotice", messageText(error), "error");
+    } finally {
+        setBusy(button, false);
+    }
+}
+
+async function copySelectedReportTemplates(
+    button: HTMLButtonElement,
+): Promise<void> {
+    const templateIds = Array.from(
+        document.querySelectorAll<HTMLInputElement>(
+            "[data-source-template-id]:checked",
+        ),
+    ).map((input) => input.value);
+    if (templateIds.length === 0) {
+        showNotice(
+            "adminNotice",
+            "กรุณาเลือกเทมเพลตที่ต้องการคัดลอก",
+            "error",
+        );
+        return;
+    }
+    setBusy(button, true, "กำลังคัดลอก...");
+    try {
+        state.reportTemplates = await googleScriptRun(
+            "copyReportTemplates",
+            token,
+            {
+                sourceAcademicYearKey: selectedTemplateSourceYearKey,
+                templateIds,
+            },
+        );
+        sourceReportTemplates = [];
+        selectedTemplateSourceYearKey = "";
+        render();
+        showNotice(
+            "adminNotice",
+            `คัดลอกเทมเพลต ${templateIds.length} รายการมายังปีการศึกษาปัจจุบันแล้ว`,
+            "ok",
+        );
+    } catch (error) {
+        showNotice("adminNotice", messageText(error), "error");
+    } finally {
+        setBusy(button, false);
+    }
 }
 
 function bindForceDelete(): void {
@@ -818,8 +2189,73 @@ async function saveStudents(button: HTMLButtonElement): Promise<void> {
     }
 }
 
-function fieldValue(row: HTMLTableRowElement, field: string): string {
-    const input = row.querySelector<HTMLInputElement | HTMLSelectElement>(
+async function saveReportTemplates(button: HTMLButtonElement): Promise<void> {
+    setBusy(button, true, "กำลังบันทึก...");
+    try {
+        state.reportTemplates = await googleScriptRun(
+            "saveReportTemplates",
+            token,
+            readReportTemplateCards(),
+        );
+        render();
+        showNotice(
+            "adminNotice",
+            "บันทึกเทมเพลตของปีการศึกษาปัจจุบันเรียบร้อย",
+            "ok",
+        );
+    } catch (error) {
+        showNotice("adminNotice", messageText(error), "error");
+    } finally {
+        setBusy(button, false);
+    }
+}
+
+function readReportTemplateCards(): ReportTemplate[] {
+    return Array.from(
+        document.querySelectorAll<HTMLElement>("[data-report-template]"),
+    ).map((card) => {
+        const reportType = fieldValue(card, "reportType") as ReportType;
+        const storedConfig = parseReportTemplateConfig(
+            fieldValue(card, "configJson"),
+            reportType,
+        );
+        return {
+            id: card.dataset.id ?? "",
+            name: fieldValue(card, "name"),
+            reportType,
+            isDefault: fieldValue(card, "isDefault") === "true",
+            enabled: fieldValue(card, "enabled") === "true",
+            config: storedConfig,
+            updatedAt: "",
+        };
+    });
+}
+
+function parseReportTemplateConfig(
+    json: string,
+    reportType: ReportType,
+): ReportTemplateConfig {
+    const fallback = defaultReportTemplateConfig(reportType);
+    try {
+        const parsed = JSON.parse(json) as Partial<ReportTemplateConfig>;
+        return {
+            ...fallback,
+            ...parsed,
+            sections: {
+                ...fallback.sections,
+                ...(parsed.sections ?? {}),
+            },
+            tables: parsed.tables ?? fallback.tables,
+        };
+    } catch {
+        return fallback;
+    }
+}
+
+function fieldValue(container: ParentNode, field: string): string {
+    const input = container.querySelector<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >(
         `[data-field="${field}"]`,
     );
     return input?.value.trim() ?? "";

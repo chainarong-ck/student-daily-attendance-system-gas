@@ -36,6 +36,18 @@ export class AcademicYearService {
         return new SheetDatabase(year);
     }
 
+    static getSheetForAcademicYearKey(key: string): SheetDatabase {
+        const ref = this.parseAcademicYearKey(key);
+        const year = ServerUtils.findAcademicYear(
+            MainConfig.getConfig().academicYears,
+            ref,
+        );
+        ServerUtils.assert(year !== null, "ไม่พบปีการศึกษา/เทอมต้นทาง");
+        const database = new SheetDatabase(year);
+        database.ensureSchema();
+        return database;
+    }
+
     private static parseAcademicYearKey(key: string): { y: number; t: number } {
         const [yearText, termText] = key.split("-");
         return {

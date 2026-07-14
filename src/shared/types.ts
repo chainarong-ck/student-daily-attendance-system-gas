@@ -12,6 +12,64 @@ export type StudentGender = "male" | "female" | "unknown";
 
 export type AttendanceStatus = "present" | "absent" | "late" | "leave";
 
+export type ReportType = "daily" | "detailed";
+
+export type ReportPageOrientation = "portrait" | "landscape";
+
+export type ReportTableDataSource =
+    | "daily.classes"
+    | "daily.statusStudents"
+    | "detailed.students";
+
+export type ReportTableColumn = {
+    id: string;
+    header: string;
+    valueToken: string;
+    widthPercent: number;
+    align: "left" | "center" | "right";
+};
+
+export type ReportTableDefinition = {
+    id: string;
+    name: string;
+    dataSource: ReportTableDataSource;
+    showHeader: boolean;
+    showTotals: boolean;
+    columns: ReportTableColumn[];
+};
+
+export type ReportTemplateSections = {
+    headerHtml: string;
+    contentHtml: string;
+    footerHtml: string;
+};
+
+export type ReportTemplateConfig = {
+    orientation: ReportPageOrientation;
+    pageMarginMm: number;
+    fontFamily: string;
+    fontSizePt: number;
+    title: string;
+    subtitle: string;
+    showLogo: boolean;
+    showStatusDetails: boolean;
+    showDutyNotes: boolean;
+    showSignatures: boolean;
+    showDraftWatermark: boolean;
+    sections: ReportTemplateSections;
+    tables: ReportTableDefinition[];
+};
+
+export type ReportTemplate = {
+    id: string;
+    name: string;
+    reportType: ReportType;
+    isDefault: boolean;
+    enabled: boolean;
+    config: ReportTemplateConfig;
+    updatedAt: string;
+};
+
 export type AcademicYear = {
     id: string;
     y: number;
@@ -140,6 +198,12 @@ export type AdminBootstrap = {
     config: SystemConfig;
     classes: ClassRoom[];
     students: Student[];
+    reportTemplates: ReportTemplate[];
+};
+
+export type CopyReportTemplatesPayload = {
+    sourceAcademicYearKey: string;
+    templateIds: string[];
 };
 
 export type SaveSystemSettingsPayload = {

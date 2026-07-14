@@ -30,6 +30,13 @@ export class ServerConstant {
         academicYears: 50,
         classes: 20,
         students: 500,
+        reportTemplates: 30,
+        reportTemplateNameLength: 100,
+        reportTemplateTextLength: 500,
+        reportTemplateConfigLength: 40_000,
+        reportTemplateSectionLength: 12_000,
+        reportTemplateTables: 10,
+        reportTemplateTableColumns: 20,
         tokenTtlMs: 7 * 24 * 60 * 60 * 1000,
     } as const;
 
@@ -45,6 +52,19 @@ export class ServerConstant {
             "gender",
         ],
         Attendance: ["id", "date", "classId", "studentId", "status"],
+        ReportTemplates: [
+            "id",
+            "name",
+            "reportType",
+            "isDefault",
+            "enabled",
+            "configJson",
+            "updatedAt",
+            "headerHtml",
+            "contentHtml",
+            "footerHtml",
+            "tablesJson",
+        ],
     } as const;
 
     static readonly STUDENT_STATUSES: StudentStatus[] = ["active", "leave"];

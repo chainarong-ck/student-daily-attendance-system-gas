@@ -15,6 +15,7 @@ export class SheetDatabase {
         this.ensureSheet("Classes", true);
         this.ensureSheet("Students", true);
         this.ensureSheet("Attendance", true);
+        this.ensureSheet("ReportTemplates", true);
     }
 
     readObjects(sheetName: SheetName): Record<string, string>[] {

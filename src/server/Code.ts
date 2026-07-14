@@ -6,11 +6,13 @@ import type {
     AttendanceStats,
     AttendanceStatsFilters,
     ClassRoom,
+    CopyReportTemplatesPayload,
     ForceDeleteStudentsPayload,
     ForceDeleteStudentsResult,
     IndexBootstrap,
     LoginResult,
     PublicSystemState,
+    ReportTemplate,
     SaveAttendancePayload,
     SaveAttendanceResult,
     SaveAcademicYearsPayload,
@@ -24,6 +26,7 @@ import { AttendanceService } from "./AttendanceService";
 import { AuthService } from "./AuthService";
 import { ClassService } from "./ClassService";
 import { MainConfig } from "./MainConfig";
+import { ReportTemplateService } from "./ReportTemplateService";
 import { ServerConstant } from "./ServerConstant";
 import { ServerUtils } from "./ServerUtils";
 import { SheetDatabase } from "./SheetDatabase";
@@ -117,6 +120,7 @@ export function getAdminBootstrap(adminToken: string): AdminBootstrap {
         config: MainConfig.getConfig(),
         classes: ClassService.listClasses(database),
         students: StudentService.listStudents(undefined, database),
+        reportTemplates: ReportTemplateService.list(database),
     };
 }
 
@@ -175,6 +179,37 @@ export function forceDeleteStudents(
     AuthService.requireAdmin(adminToken);
     return ServerUtils.withScriptLock(() =>
         StudentService.forceDeleteStudents(payload),
+    );
+}
+
+export function getReportTemplates(token: string): ReportTemplate[] {
+    AuthService.requireApp(token);
+    return ReportTemplateService.listEnabled();
+}
+
+export function getReportTemplatesForAcademicYear(
+    adminToken: string,
+    academicYearKey: string,
+): ReportTemplate[] {
+    AuthService.requireAdmin(adminToken);
+    return ReportTemplateService.listForAcademicYear(academicYearKey);
+}
+
+export function saveReportTemplates(
+    adminToken: string,
+    rows: ReportTemplate[],
+): ReportTemplate[] {
+    AuthService.requireAdmin(adminToken);
+    return ServerUtils.withScriptLock(() => ReportTemplateService.save(rows));
+}
+
+export function copyReportTemplates(
+    adminToken: string,
+    payload: CopyReportTemplatesPayload,
+): ReportTemplate[] {
+    AuthService.requireAdmin(adminToken);
+    return ServerUtils.withScriptLock(() =>
+        ReportTemplateService.copyFromAcademicYear(payload),
     );
 }
 

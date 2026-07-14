@@ -5,11 +5,13 @@ import type {
     AttendanceStats,
     AttendanceStatsFilters,
     ClassRoom,
+    CopyReportTemplatesPayload,
     ForceDeleteStudentsPayload,
     ForceDeleteStudentsResult,
     IndexBootstrap,
     LoginResult,
     PublicSystemState,
+    ReportTemplate,
     SaveAttendancePayload,
     SaveAttendanceResult,
     SaveAcademicYearsPayload,
@@ -49,6 +51,19 @@ declare global {
                 adminToken: string,
                 payload: ForceDeleteStudentsPayload,
             ): ForceDeleteStudentsResult;
+            getReportTemplates(token: string): ReportTemplate[];
+            getReportTemplatesForAcademicYear(
+                adminToken: string,
+                academicYearKey: string,
+            ): ReportTemplate[];
+            saveReportTemplates(
+                adminToken: string,
+                rows: ReportTemplate[],
+            ): ReportTemplate[];
+            copyReportTemplates(
+                adminToken: string,
+                payload: CopyReportTemplatesPayload,
+            ): ReportTemplate[];
             getAttendanceClassSession(
                 token: string,
                 classId: string,
