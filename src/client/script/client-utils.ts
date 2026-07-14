@@ -148,7 +148,7 @@ export function setBusy(
 }
 
 export function footerHtml(): string {
-    return `<footer class="mt-10 rounded-lg border border-white/70 bg-white/70 px-4 py-5 text-center text-sm text-slate-500 shadow-sm">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย นายชัยณรงค์ คงพล | GitHub: <a href="https://github.com/chainarong-ck" target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-700 hover:text-orange-600">Chainarong-CK</a></footer>`;
+    return `<footer class="mt-10 rounded-lg border border-white/70 bg-white/70 px-4 py-5 text-center text-sm text-slate-500 shadow-sm">ระบบเช็คชื่อนักเรียนรายวัน | พัฒนาโดย นายชัยณรงค์ คงพล และ นางสาวกุสุมา โตเรือง | หน้าโปรเจกต์: <a href="https://github.com/chainarong-ck/student-daily-attendance-system-gas" target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-700 hover:text-orange-600">Student Daily Attendance System</a></footer>`;
 }
 
 export function shellHtml(
