@@ -103,7 +103,7 @@ export type SystemConfig = {
 export type PublicSystemState = {
     initialized: boolean;
     schoolName: string;
-    currentYear: AcademicYear | null;
+    currentYear: CurrentYearRef | null;
 };
 
 export type ClassRoom = {

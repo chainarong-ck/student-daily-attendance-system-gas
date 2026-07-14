@@ -242,7 +242,10 @@ export class ReportTemplateService {
                 input?.sections?.footerHtml ?? fallback.sections.footerHtml,
             ),
         };
-        const tables = this.normalizeTables(input?.tables ?? fallback.tables);
+        const tables = this.normalizeTables(
+            input?.tables ?? fallback.tables,
+            reportType,
+        );
         return {
             orientation:
                 input?.orientation === "landscape" ? "landscape" : "portrait",
@@ -289,12 +292,13 @@ export class ReportTemplateService {
         sections.headerHtml = this.migrateLegacyTokens(sections.headerHtml);
         sections.contentHtml = this.migrateLegacyTokens(sections.contentHtml);
         sections.footerHtml = this.migrateLegacyTokens(sections.footerHtml);
-        const tables = splitStorage
+        const storedTables = splitStorage
             ? ServerUtils.parseJson<ReportTableDefinition[]>(
                   row.tablesJson,
                   [],
               )
             : (parsed.tables ?? fallback.tables);
+        const tables = this.migrateStoredTables(storedTables, reportType);
         return {
             id: ServerUtils.normalizeText(row.id),
             name: ServerUtils.normalizeText(row.name),
@@ -490,6 +494,7 @@ export class ReportTemplateService {
 
     private static normalizeTables(
         tables: ReportTableDefinition[],
+        reportType: ReportType,
     ): ReportTableDefinition[] {
         ServerUtils.assert(
             tables.length <= ServerConstant.LIMITS.reportTemplateTables,
@@ -511,6 +516,12 @@ export class ReportTemplateService {
                 `ตารางต้องมี 1-${ServerConstant.LIMITS.reportTemplateTableColumns} คอลัมน์`,
             );
             const dataSource = this.tableDataSource(table.dataSource);
+            ServerUtils.assert(
+                this.isDataSourceCompatible(dataSource, reportType),
+                reportType === "daily"
+                    ? "รายงานรายวันต้องใช้แหล่งข้อมูลภาพรวมรายวัน"
+                    : "รายงานสถิติละเอียดต้องใช้แหล่งข้อมูลสถิติรายบุคคล",
+            );
             const allowedTokens = new Set(this.allowedTableTokens(dataSource));
             const columnIds = new Set<string>();
             const columns: ReportTableDefinition["columns"] = table.columns.map((column) => {
@@ -635,9 +646,11 @@ export class ReportTemplateService {
                 "late.male",
                 "late.female",
                 "late.total",
+                "late.percent",
                 "leave.male",
                 "leave.female",
                 "leave.total",
+                "leave.percent",
             ];
         }
         if (dataSource === "daily.statusStudents") {
@@ -666,6 +679,46 @@ export class ReportTemplateService {
             "leave.percent",
             "attendance.total",
         ];
+    }
+
+    private static isDataSourceCompatible(
+        dataSource: unknown,
+        reportType: ReportType,
+    ): boolean {
+        if (reportType === "detailed") {
+            return dataSource === "detailed.students";
+        }
+        return (
+            dataSource === "daily.school" ||
+            dataSource === "daily.classes" ||
+            dataSource === "daily.statusStudents"
+        );
+    }
+
+    private static migrateStoredTables(
+        tables: ReportTableDefinition[],
+        reportType: ReportType,
+    ): ReportTableDefinition[] {
+        if (!Array.isArray(tables)) {
+            return [this.defaultTable(reportType)];
+        }
+        return tables.map((table) => {
+            if (
+                table &&
+                typeof table === "object" &&
+                this.isDataSourceCompatible(table.dataSource, reportType)
+            ) {
+                return table;
+            }
+            const fallback = this.defaultTable(reportType);
+            return {
+                ...fallback,
+                id: ServerUtils.normalizeText(table?.id) || fallback.id,
+                name: ServerUtils.normalizeText(table?.name) || fallback.name,
+                showHeader: Boolean(table?.showHeader),
+                showTotals: Boolean(table?.showTotals),
+            };
+        });
     }
 
     private static templateHtml(value: unknown): string {

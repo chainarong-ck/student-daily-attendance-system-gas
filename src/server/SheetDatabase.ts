@@ -51,7 +51,7 @@ export class SheetDatabase {
             return;
         }
         const values = rows.map((row) =>
-            headers.map((header) => ServerUtils.normalizeText(row[header])),
+            headers.map((header) => this.toSheetText(row[header])),
         );
         sheet
             .getRange(2, 1, values.length, headers.length)
@@ -66,13 +66,21 @@ export class SheetDatabase {
         const sheet = this.ensureSheet(sheetName);
         const headers = [...ServerConstant.HEADERS[sheetName]];
         const values = rows.map((row) =>
-            headers.map((header) => ServerUtils.normalizeText(row[header])),
+            headers.map((header) => this.toSheetText(row[header])),
         );
         this.ensureRowCapacity(sheet, sheet.getLastRow() + values.length);
         sheet
             .getRange(sheet.getLastRow() + 1, 1, values.length, headers.length)
             .setNumberFormat("@")
             .setValues(values);
+    }
+
+    private toSheetText(value: unknown): string {
+        const text = ServerUtils.normalizeText(value);
+        // Google Sheets treats strings beginning with "=" as formulas even
+        // when the cell number format is plain text. A leading apostrophe is
+        // the Sheets literal-text marker and is not included in display reads.
+        return text.startsWith("=") ? `'${text}` : text;
     }
 
     private ensureSheet(

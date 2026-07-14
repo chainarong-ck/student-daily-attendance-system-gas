@@ -25,14 +25,17 @@ export class MainConfig {
     static getPublicState(): PublicSystemState {
         const properties = this.properties().getProperties();
         const config = this.configFromProperties(properties);
+        const currentYear = ServerUtils.findAcademicYear(
+            config.academicYears,
+            config.currentYear,
+        );
         return {
             initialized:
                 properties[ServerConstant.PROPERTY_KEYS.initialized] === "true",
             schoolName: config.schoolName,
-            currentYear: ServerUtils.findAcademicYear(
-                config.academicYears,
-                config.currentYear,
-            ),
+            currentYear: currentYear
+                ? { y: currentYear.y, t: currentYear.t }
+                : null,
         };
     }
 

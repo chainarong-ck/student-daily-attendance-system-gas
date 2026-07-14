@@ -619,6 +619,8 @@ const tableTokenOptions: Record<ReportTableDataSource, TemplateTokenOption[]> = 
         { token: "leave.total", label: "ลารวม", sample: "0" },
         { token: "present.percent", label: "ร้อยละมา", sample: "92.59%" },
         { token: "absent.percent", label: "ร้อยละขาด", sample: "3.70%" },
+        { token: "late.percent", label: "ร้อยละสาย", sample: "3.70%" },
+        { token: "leave.percent", label: "ร้อยละลา", sample: "0.00%" },
     ],
     "daily.statusStudents": [
         { token: "class.name", label: "ชั้น/ห้อง", sample: "ม.1/1" },
@@ -1124,18 +1126,31 @@ function reportHeaderCellEditorHtml(cell: ReportTableHeaderCell): string {
 }
 
 function tableDataSourceOptions(selected: ReportTableDataSource): string {
-    const options: Array<[ReportTableDataSource, string]> = [
-        ["daily.school", "ภาพรวมรายวัน · สรุปทั้งโรงเรียน"],
-        ["daily.classes", "ภาพรวมรายวัน · สรุปตามห้อง"],
-        ["daily.statusStudents", "ภาพรวมรายวัน · รายชื่อนักเรียนตามสถานะ"],
-        ["detailed.students", "สถิติละเอียด · รายบุคคล"],
-    ];
+    const reportType = editingReportType();
+    const options: Array<[ReportTableDataSource, string]> =
+        reportType === "detailed"
+            ? [["detailed.students", "สถิติละเอียด · รายบุคคล"]]
+            : [
+                  ["daily.school", "ภาพรวมรายวัน · สรุปทั้งโรงเรียน"],
+                  ["daily.classes", "ภาพรวมรายวัน · สรุปตามห้อง"],
+                  [
+                      "daily.statusStudents",
+                      "ภาพรวมรายวัน · รายชื่อนักเรียนตามสถานะ",
+                  ],
+              ];
     return options
         .map(
             ([value, label]) =>
                 `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`,
         )
         .join("");
+}
+
+function editingReportType(): ReportType {
+    return fieldValue(editingTemplateCard ?? document, "reportType") ===
+        "detailed"
+        ? "detailed"
+        : "daily";
 }
 
 function reportTableColumnRowHtml(
@@ -2721,8 +2736,8 @@ function parseReportTemplateConfig(
                 ...fallback.sections,
                 ...(parsed.sections ?? {}),
             },
-            tables: (parsed.tables ?? fallback.tables).map(
-                normalizeClientReportTable,
+            tables: (parsed.tables ?? fallback.tables).map((table) =>
+                normalizeClientReportTable(table, reportType),
             ),
         };
     } catch {
@@ -2732,21 +2747,38 @@ function parseReportTemplateConfig(
 
 function normalizeClientReportTable(
     table: ReportTableDefinition,
+    reportType: ReportType,
 ): ReportTableDefinition {
-    const columns = table.columns.map((column) => ({
+    const compatible =
+        reportType === "daily"
+            ? table.dataSource === "daily.school" ||
+              table.dataSource === "daily.classes" ||
+              table.dataSource === "daily.statusStudents"
+            : table.dataSource === "detailed.students";
+    const sourceTable = compatible
+        ? table
+        : {
+              ...defaultReportTable(reportType),
+              id: table.id,
+              name: table.name,
+              showHeader: table.showHeader,
+              showTotals: table.showTotals,
+          };
+    const columns = sourceTable.columns.map((column) => ({
         ...column,
         mergeRepeatingValues: Boolean(column.mergeRepeatingValues),
     }));
     const normalized: ReportTableDefinition = {
-        ...table,
+        ...sourceTable,
         columns,
         headerRowCount: Math.max(
             1,
-            Math.min(6, Number(table.headerRowCount) || 1),
+            Math.min(6, Number(sourceTable.headerRowCount) || 1),
         ),
         headerCells:
-            Array.isArray(table.headerCells) && table.headerCells.length > 0
-                ? table.headerCells.map((cell) => ({ ...cell }))
+            Array.isArray(sourceTable.headerCells) &&
+            sourceTable.headerCells.length > 0
+                ? sourceTable.headerCells.map((cell) => ({ ...cell }))
                 : defaultReportHeaderCells(columns),
     };
     repairReportTableHeaderLayout(normalized);
