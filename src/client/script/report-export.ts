@@ -62,19 +62,26 @@ export function buildReportHtmlDocument(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>${escapeHtml(config.title || template.name)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&amp;display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&amp;display=swap" />
     <style>
         @page { size: A4 ${config.orientation}; margin: ${config.pageMarginMm}mm; }
         * { box-sizing: border-box; }
         html { background: #e2e8f0; }
-        body { margin: 0; color: #0f172a; font-family: ${config.fontFamily}; font-size: ${config.fontSizePt}pt; line-height: 1.45; }
+        body { margin: 0; color: #000; font-family: ${config.fontFamily}; font-size: ${config.fontSizePt}pt; line-height: 1.45; }
         .report-page { position: relative; display: flex; flex-direction: column; width: ${pageWidth}mm; min-height: ${pageHeight}mm; margin: 12px auto; padding: ${config.pageMarginMm}mm; background: #fff; box-shadow: 0 10px 30px rgba(15,23,42,.18); overflow: hidden; }
+        .report-page, .report-page * { font-family: ${config.fontFamily} !important; }
+        .report-page, .report-page *:not(.draft-watermark) { color: #000 !important; -webkit-text-fill-color: #000 !important; }
         .report-content { flex: 1; }
         .report-region img { max-width: 100%; }
         .report-region table { page-break-inside: auto; }
+        .report-region table, .report-region th, .report-region td { border-color: #000 !important; }
         .report-region thead { display: table-header-group; }
         .report-region tr { break-inside: avoid; page-break-inside: avoid; }
         .report-region p { margin: .35em 0; }
-        .draft-watermark { position: fixed; inset: 43% 0 auto; z-index: 0; transform: rotate(-28deg); color: rgba(100,116,139,.14); font: 700 48pt Arial,sans-serif; text-align: center; pointer-events: none; }
+        .draft-watermark { position: fixed; inset: 43% 0 auto; z-index: 0; transform: rotate(-28deg); color: rgba(100,116,139,.14) !important; -webkit-text-fill-color: rgba(100,116,139,.14) !important; font: 700 48pt Arial,sans-serif; text-align: center; pointer-events: none; }
         .report-header,.report-content,.report-footer { position: relative; z-index: 1; }
         @media print {
             html,body { background: #fff; }
@@ -158,11 +165,21 @@ export function writeReportToPrintWindow(
     target: Window,
     html: string,
 ): void {
+    const printWhenReady = () => {
+        void target.document.fonts.ready
+            .then(() => {
+                target.focus();
+                target.print();
+            })
+            .catch(() => {
+                target.focus();
+                target.print();
+            });
+    };
+    target.addEventListener("load", printWhenReady, { once: true });
     target.document.open();
     target.document.write(html);
     target.document.close();
-    target.focus();
-    window.setTimeout(() => target.print(), 250);
 }
 
 function renderRegion(
@@ -263,18 +280,18 @@ function renderTable(
                                   ) {
                                       rowSpan += 1;
                                   }
-                                  return `<td rowspan="${rowSpan}" style="border:1px solid #475569;padding:4px;text-align:${column.align};vertical-align:middle">${escapeHtml(value)}</td>`;
+                                  return `<td rowspan="${rowSpan}" style="border:1px solid #000;padding:4px;text-align:${column.align};vertical-align:middle">${escapeHtml(value)}</td>`;
                               })
                               .join("")}</tr>`,
                   )
                   .join("")
-            : `<tr><td colspan="${Math.max(table.columns.length, 1)}" style="border:1px solid #475569;padding:8px;text-align:center;color:#64748b">ไม่พบข้อมูล</td></tr>`;
+            : `<tr><td colspan="${Math.max(table.columns.length, 1)}" style="border:1px solid #000;padding:8px;text-align:center">ไม่พบข้อมูล</td></tr>`;
     const foot =
         table.showTotals && rows.length > 0
             ? `<tfoot><tr>${table.columns
                   .map(
                       (column, index) =>
-                          `<td style="border:1px solid #475569;background:#f1f5f9;padding:4px;text-align:${column.align};font-weight:700">${index === 0 ? "รวม" : escapeHtml(totalValue(column.valueToken, rows, context))}</td>`,
+                          `<td style="border:1px solid #000;background:#f1f5f9;padding:4px;text-align:${column.align};font-weight:700">${index === 0 ? "รวม" : escapeHtml(totalValue(column.valueToken, rows, context))}</td>`,
                   )
                   .join("")}</tr></tfoot>`
             : "";
@@ -298,7 +315,7 @@ function renderTableHeader(table: ReportTableDefinition): string {
                             (sum, column) => sum + column.widthPercent,
                             0,
                         );
-                    return `<th rowspan="${cell.rowSpan}" colspan="${cell.columnSpan}" style="width:${width}%;border:1px solid #475569;background:#e2e8f0;padding:4px;text-align:center;vertical-align:middle">${escapeHtml(cell.text)}</th>`;
+                    return `<th rowspan="${cell.rowSpan}" colspan="${cell.columnSpan}" style="width:${width}%;border:1px solid #000;background:#e2e8f0;padding:4px;text-align:center;vertical-align:middle">${escapeHtml(cell.text)}</th>`;
                 })
                 .join("")}</tr>`,
     ).join("")}</thead>`;

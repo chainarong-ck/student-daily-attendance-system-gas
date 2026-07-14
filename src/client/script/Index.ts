@@ -620,8 +620,7 @@ function openExportDialog(reportType: ReportTemplate["reportType"]): void {
                     </label>
                     <label class="block text-sm font-semibold text-slate-700">รูปแบบ
                         <select id="teacherExportFormat" class="mt-1 w-full ${fieldClass}">
-                            <option value="print">พิมพ์ / บันทึกเป็น PDF</option>
-                            <option value="html">HTML · รักษารูปแบบเอกสาร</option>
+                            <option value="print">PDF · พิมพ์หรือบันทึกเป็น PDF</option>
                             <option value="csv">CSV · ข้อมูลตารางสำหรับ Excel</option>
                         </select>
                     </label>
@@ -656,7 +655,7 @@ async function exportTeacherReport(
     ).value;
     const format = (
         document.getElementById("teacherExportFormat") as HTMLSelectElement
-    ).value as "print" | "html" | "csv";
+    ).value as "print" | "csv";
     const template = bootstrap.reportTemplates.find(
         (row) => row.id === templateId && row.reportType === reportType,
     );
@@ -694,13 +693,7 @@ async function exportTeacherReport(
                 academicYear: year?.y ?? "-",
                 academicTerm: year?.t ?? "-",
             });
-            if (format === "html") {
-                downloadReportText(
-                    html,
-                    `${fileBaseName}.html`,
-                    "text/html;charset=utf-8",
-                );
-            } else if (printWindow) {
+            if (printWindow) {
                 writeReportToPrintWindow(printWindow, html);
             }
         }

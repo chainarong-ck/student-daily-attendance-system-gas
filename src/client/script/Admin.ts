@@ -722,10 +722,7 @@ function templatePageSettingsHtml(config: ReportTemplateConfig): string {
 function fontFamilyOptions(selected: string): string {
     return [
         ["Sarabun, sans-serif", "Sarabun"],
-        ["Arial, sans-serif", "Arial"],
-        ["Tahoma, sans-serif", "Tahoma"],
-        ["serif", "Serif"],
-        ["monospace", "Monospace"],
+        ['"Noto Sans Thai", sans-serif', "Noto Sans Thai"],
     ]
         .map(
             ([value, label]) =>
@@ -1709,7 +1706,7 @@ function renderReportTemplatePreview(): void {
     const maxWidth = landscape ? 960 : 700;
     const aspectRatio = landscape ? "297 / 210" : "210 / 297";
     const paddingPx = Math.round(config.pageMarginMm * 2.7);
-    preview.innerHTML = `<div style="position:relative;width:min(100%,${maxWidth}px);min-height:${landscape ? 610 : 920}px;aspect-ratio:${aspectRatio};margin:0 auto;padding:${paddingPx}px;background:#fff;color:#0f172a;box-shadow:0 12px 35px rgba(15,23,42,.18);font-family:${escapeHtml(config.fontFamily)};font-size:${config.fontSizePt}pt;line-height:1.45;display:flex;flex-direction:column;overflow:hidden">
+    preview.innerHTML = `<div class="report-template-preview" style="--report-font-family:${escapeHtml(config.fontFamily)};position:relative;width:min(100%,${maxWidth}px);min-height:${landscape ? 610 : 920}px;aspect-ratio:${aspectRatio};margin:0 auto;padding:${paddingPx}px;background:#fff;color:#0f172a;box-shadow:0 12px 35px rgba(15,23,42,.18);font-family:${escapeHtml(config.fontFamily)};font-size:${config.fontSizePt}pt;line-height:1.45;display:flex;flex-direction:column;overflow:hidden">
         ${config.showDraftWatermark ? '<div style="position:absolute;inset:42% 0 auto;transform:rotate(-28deg);text-align:center;font-size:48px;font-weight:700;color:rgba(148,163,184,.18);pointer-events:none">ฉบับร่าง · PREVIEW</div>' : ""}
         <header class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("HEADER")}${renderPreviewRegion(config.sections.headerHtml)}</header>
         <main class="report-template-rich-content" style="position:relative;flex:1;border-left:1px dashed #e2e8f0;border-right:1px dashed #e2e8f0;padding:10px 8px">${previewSectionLabel("CONTENT")}${renderPreviewRegion(config.sections.contentHtml)}</main>

@@ -310,6 +310,7 @@ export class ReportTemplateService {
                     parsed.orientation === "landscape"
                         ? "landscape"
                         : "portrait",
+                fontFamily: this.fontFamily(parsed.fontFamily),
             },
             updatedAt: ServerUtils.normalizeText(row.updatedAt),
         };
@@ -695,12 +696,20 @@ export class ReportTemplateService {
         const normalized = ServerUtils.normalizeText(value);
         const allowed = [
             "Sarabun, sans-serif",
-            "Arial, sans-serif",
-            "Tahoma, sans-serif",
-            "serif",
-            "monospace",
+            '"Noto Sans Thai", sans-serif',
         ];
-        return allowed.includes(normalized) ? normalized : allowed[0];
+        const legacyAliases: Record<string, string> = {
+            "Arial, sans-serif": allowed[1],
+            "Tahoma, sans-serif": allowed[1],
+            serif: allowed[1],
+            monospace: allowed[1],
+            'Arial, Arimo, "Noto Sans Thai", sans-serif': allowed[1],
+            'Tahoma, "Noto Sans Thai", sans-serif': allowed[1],
+            '"Noto Serif Thai", serif': allowed[1],
+            '"Noto Sans Mono", "Noto Sans Thai", monospace': allowed[1],
+        };
+        const migrated = legacyAliases[normalized] ?? normalized;
+        return allowed.includes(migrated) ? migrated : allowed[0];
     }
 
     private static numberInRange(
