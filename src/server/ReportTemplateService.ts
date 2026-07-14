@@ -4,6 +4,7 @@ import type {
     ReportTemplateConfig,
     ReportTableDataSource,
     ReportTableDefinition,
+    ReportTableHeaderCell,
     ReportType,
 } from "../shared/types";
 import { AcademicYearService } from "./AcademicYearService";
@@ -26,8 +27,10 @@ export class ReportTemplateService {
             );
     }
 
-    static listEnabled(): ReportTemplate[] {
-        return this.list().filter((template) => template.enabled);
+    static listEnabled(
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
+    ): ReportTemplate[] {
+        return this.list(database).filter((template) => template.enabled);
     }
 
     static save(rows: ReportTemplate[]): ReportTemplate[] {
@@ -340,37 +343,43 @@ export class ReportTemplateService {
 
     private static defaultTable(reportType: ReportType): ReportTableDefinition {
         if (reportType === "daily") {
+            const columns = [
+                this.column("class", "ชั้น/ห้อง", "class.name", 20, "left"),
+                this.column("students", "นักเรียนทั้งหมด", "students.total", 16),
+                this.column("present", "มา", "present.total", 16),
+                this.column("absent", "ขาด", "absent.total", 16),
+                this.column("late", "สาย", "late.total", 16),
+                this.column("leave", "ลา", "leave.total", 16),
+            ];
             return {
                 id: "daily-summary",
                 name: "สรุปตามห้องเรียน",
                 dataSource: "daily.classes",
                 showHeader: true,
                 showTotals: true,
-                columns: [
-                    this.column("class", "ชั้น/ห้อง", "class.name", 20, "left"),
-                    this.column("students", "นักเรียนทั้งหมด", "students.total", 16),
-                    this.column("present", "มา", "present.total", 16),
-                    this.column("absent", "ขาด", "absent.total", 16),
-                    this.column("late", "สาย", "late.total", 16),
-                    this.column("leave", "ลา", "leave.total", 16),
-                ],
+                columns,
+                headerRowCount: 1,
+                headerCells: this.defaultHeaderCells(columns),
             };
         }
+        const columns = [
+            this.column("class", "ห้อง", "class.name", 12),
+            this.column("number", "เลขที่", "student.number", 8),
+            this.column("name", "ชื่อ-สกุล", "student.fullName", 28, "left"),
+            this.column("present", "มา", "present.count", 13),
+            this.column("absent", "ขาด", "absent.count", 13),
+            this.column("late", "สาย", "late.count", 13),
+            this.column("leave", "ลา", "leave.count", 13),
+        ];
         return {
             id: "detailed-students",
             name: "สถิติรายบุคคล",
             dataSource: "detailed.students",
             showHeader: true,
             showTotals: false,
-            columns: [
-                this.column("class", "ห้อง", "class.name", 12),
-                this.column("number", "เลขที่", "student.number", 8),
-                this.column("name", "ชื่อ-สกุล", "student.fullName", 28, "left"),
-                this.column("present", "มา", "present.count", 13),
-                this.column("absent", "ขาด", "absent.count", 13),
-                this.column("late", "สาย", "late.count", 13),
-                this.column("leave", "ลา", "leave.count", 13),
-            ],
+            columns,
+            headerRowCount: 1,
+            headerCells: this.defaultHeaderCells(columns),
         };
     }
 
@@ -381,7 +390,101 @@ export class ReportTemplateService {
         widthPercent: number,
         align: "left" | "center" | "right" = "center",
     ) {
-        return { id, header, valueToken, widthPercent, align };
+        return {
+            id,
+            header,
+            valueToken,
+            widthPercent,
+            align,
+            mergeRepeatingValues: false,
+        };
+    }
+
+    private static defaultHeaderCells(
+        columns: ReportTableDefinition["columns"],
+        rowCount = 1,
+    ): ReportTableHeaderCell[] {
+        return Array.from({ length: rowCount }).flatMap((_, rowIndex) =>
+            columns.map((column, columnIndex) => ({
+                id: `head-${rowIndex}-${column.id}`,
+                text: rowIndex === rowCount - 1 ? column.header : "",
+                rowIndex,
+                columnIndex,
+                rowSpan: 1,
+                columnSpan: 1,
+            })),
+        );
+    }
+
+    private static normalizeHeaderCells(
+        input: ReportTableHeaderCell[] | undefined,
+        rowCount: number,
+        columns: ReportTableDefinition["columns"],
+    ): ReportTableHeaderCell[] {
+        if (!Array.isArray(input) || input.length === 0) {
+            return this.defaultHeaderCells(columns, rowCount);
+        }
+        const grid = Array.from({ length: rowCount }, () =>
+            Array.from({ length: columns.length }, () => false),
+        );
+        const ids = new Set<string>();
+        const cells = input.map((cell) => {
+            const id =
+                ServerUtils.normalizeText(cell.id) ||
+                ServerUtils.createShortId("head");
+            const text = ServerUtils.normalizeText(cell.text);
+            const rowIndex = Math.trunc(Number(cell.rowIndex));
+            const columnIndex = Math.trunc(Number(cell.columnIndex));
+            const rowSpan = Math.trunc(Number(cell.rowSpan));
+            const columnSpan = Math.trunc(Number(cell.columnSpan));
+            ServerUtils.assert(
+                !ids.has(id) && /^[a-zA-Z0-9_-]+$/.test(id),
+                "รหัสเซลล์หัวตารางไม่ถูกต้องหรือซ้ำกัน",
+            );
+            ids.add(id);
+            ServerUtils.assert(
+                text.length <= 100,
+                "ข้อความเซลล์หัวตารางห้ามเกิน 100 ตัวอักษร",
+            );
+            ServerUtils.assert(
+                rowIndex >= 0 &&
+                    columnIndex >= 0 &&
+                    rowSpan >= 1 &&
+                    columnSpan >= 1 &&
+                    rowIndex + rowSpan <= rowCount &&
+                    columnIndex + columnSpan <= columns.length,
+                "ขอบเขตเซลล์หัวตารางไม่ถูกต้อง",
+            );
+            for (let row = rowIndex; row < rowIndex + rowSpan; row += 1) {
+                for (
+                    let column = columnIndex;
+                    column < columnIndex + columnSpan;
+                    column += 1
+                ) {
+                    ServerUtils.assert(
+                        !grid[row][column],
+                        "เซลล์หัวตารางซ้อนทับกัน",
+                    );
+                    grid[row][column] = true;
+                }
+            }
+            return {
+                id,
+                text,
+                rowIndex,
+                columnIndex,
+                rowSpan,
+                columnSpan,
+            };
+        });
+        ServerUtils.assert(
+            grid.every((row) => row.every(Boolean)),
+            "โครงสร้างหัวตารางมีช่องว่างที่ไม่ได้กำหนดเซลล์",
+        );
+        return cells.sort(
+            (a, b) =>
+                a.rowIndex - b.rowIndex || a.columnIndex - b.columnIndex,
+        );
     }
 
     private static normalizeTables(
@@ -409,50 +512,69 @@ export class ReportTemplateService {
             const dataSource = this.tableDataSource(table.dataSource);
             const allowedTokens = new Set(this.allowedTableTokens(dataSource));
             const columnIds = new Set<string>();
+            const columns: ReportTableDefinition["columns"] = table.columns.map((column) => {
+                const columnId =
+                    ServerUtils.normalizeText(column.id) ||
+                    ServerUtils.createShortId("col");
+                const header = ServerUtils.normalizeText(column.header);
+                const valueToken = ServerUtils.normalizeText(
+                    column.valueToken,
+                );
+                ServerUtils.assert(
+                    /^[a-zA-Z0-9_-]+$/.test(columnId) &&
+                        !columnIds.has(columnId),
+                    "รหัสคอลัมน์ไม่ถูกต้องหรือซ้ำกัน",
+                );
+                columnIds.add(columnId);
+                ServerUtils.assert(
+                    header.length > 0 && header.length <= 100,
+                    "หัวคอลัมน์ต้องมี 1-100 ตัวอักษร",
+                );
+                ServerUtils.assert(
+                    allowedTokens.has(valueToken),
+                    `ข้อมูลคอลัมน์ ${valueToken || "-"} ไม่รองรับแหล่งข้อมูลที่เลือก`,
+                );
+                return {
+                    id: columnId,
+                    header,
+                    valueToken,
+                    widthPercent: this.numberInRange(
+                        column.widthPercent,
+                        1,
+                        100,
+                        10,
+                    ),
+                    align:
+                        column.align === "left" || column.align === "right"
+                            ? column.align
+                            : "center",
+                    mergeRepeatingValues: Boolean(
+                        column.mergeRepeatingValues,
+                    ),
+                };
+            });
+            const headerRowCount = Math.trunc(
+                this.numberInRange(
+                    table.headerRowCount,
+                    1,
+                    ServerConstant.LIMITS.reportTemplateHeaderRows,
+                    1,
+                ),
+            );
+            const headerCells = this.normalizeHeaderCells(
+                table.headerCells,
+                headerRowCount,
+                columns,
+            );
             return {
                 id,
                 name,
                 dataSource,
                 showHeader: Boolean(table.showHeader),
                 showTotals: Boolean(table.showTotals),
-                columns: table.columns.map((column) => {
-                    const columnId =
-                        ServerUtils.normalizeText(column.id) ||
-                        ServerUtils.createShortId("col");
-                    const header = ServerUtils.normalizeText(column.header);
-                    const valueToken = ServerUtils.normalizeText(
-                        column.valueToken,
-                    );
-                    ServerUtils.assert(
-                        /^[a-zA-Z0-9_-]+$/.test(columnId) &&
-                            !columnIds.has(columnId),
-                        "รหัสคอลัมน์ไม่ถูกต้องหรือซ้ำกัน",
-                    );
-                    columnIds.add(columnId);
-                    ServerUtils.assert(
-                        header.length > 0 && header.length <= 100,
-                        "หัวคอลัมน์ต้องมี 1-100 ตัวอักษร",
-                    );
-                    ServerUtils.assert(
-                        allowedTokens.has(valueToken),
-                        `ข้อมูลคอลัมน์ ${valueToken || "-"} ไม่รองรับแหล่งข้อมูลที่เลือก`,
-                    );
-                    return {
-                        id: columnId,
-                        header,
-                        valueToken,
-                        widthPercent: this.numberInRange(
-                            column.widthPercent,
-                            1,
-                            100,
-                            10,
-                        ),
-                        align:
-                            column.align === "left" || column.align === "right"
-                                ? column.align
-                                : "center",
-                    };
-                }),
+                columns,
+                headerRowCount,
+                headerCells,
             };
         });
     }
@@ -460,7 +582,8 @@ export class ReportTemplateService {
     private static tableDataSource(value: unknown): ReportTableDataSource {
         const normalized = ServerUtils.normalizeText(value);
         ServerUtils.assert(
-            normalized === "daily.classes" ||
+            normalized === "daily.school" ||
+                normalized === "daily.classes" ||
                 normalized === "daily.statusStudents" ||
                 normalized === "detailed.students",
             "แหล่งข้อมูลตารางไม่ถูกต้อง",
@@ -471,6 +594,29 @@ export class ReportTemplateService {
     private static allowedTableTokens(
         dataSource: ReportTableDataSource,
     ): string[] {
+        if (dataSource === "daily.school") {
+            return [
+                "students.male",
+                "students.female",
+                "students.total",
+                "present.male",
+                "present.female",
+                "present.total",
+                "present.percent",
+                "absent.male",
+                "absent.female",
+                "absent.total",
+                "absent.percent",
+                "late.male",
+                "late.female",
+                "late.total",
+                "late.percent",
+                "leave.male",
+                "leave.female",
+                "leave.total",
+                "leave.percent",
+            ];
+        }
         if (dataSource === "daily.classes") {
             return [
                 "class.name",

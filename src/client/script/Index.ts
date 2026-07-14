@@ -1,12 +1,15 @@
 import { googleScriptRun } from "../../shared/gas-client";
 import type {
     AttendanceClassSession,
+    AttendanceOverview,
     AttendanceStatus,
     AttendanceStats,
+    AttendanceStatsFilters,
     ClassRoom,
     GenderAttendanceSummary,
     GenderCounts,
     IndexBootstrap,
+    ReportTemplate,
     StudentGender,
 } from "../../shared/types";
 import {
@@ -21,6 +24,14 @@ import {
     showNotice,
     todayText,
 } from "./client-utils";
+import {
+    buildReportCsv,
+    buildReportHtmlDocument,
+    downloadReportText,
+    reportFileBaseName,
+    type ReportExportContext,
+    writeReportToPrintWindow,
+} from "./report-export";
 
 const statusLabels: Record<AttendanceStatus, string> = {
     present: "มา",
@@ -38,6 +49,8 @@ const genderLabels: Record<StudentGender, string> = {
 let token = "";
 let bootstrap: IndexBootstrap;
 let currentSession: AttendanceClassSession | null = null;
+let currentOverview: AttendanceOverview | null = null;
+let currentStats: AttendanceStats | null = null;
 let overviewDisplayMode: "count" | "percent" = "count";
 
 const panelClass =
@@ -46,6 +59,8 @@ const fieldClass =
     "rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100";
 const primaryButtonClass =
     "rounded-md bg-orange-600 px-4 py-2 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60";
+const secondaryButtonClass =
+    "rounded-md border border-teal-200 bg-white px-4 py-2 font-semibold text-teal-800 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60";
 const tableHeadClass =
     "bg-gradient-to-r from-teal-50 to-orange-50 text-slate-700";
 
@@ -91,6 +106,7 @@ function render(): void {
                     </div>
                     <input id="overviewDate" type="date" value="${todayText()}" class="${fieldClass}" />
                     <button id="loadOverviewButton" class="${primaryButtonClass}">โหลด</button>
+                    <button id="exportDailyButton" class="${secondaryButtonClass}">ส่งออกข้อมูล</button>
                 </div>
             </div>
             <div id="overviewContent" class="text-sm text-slate-600">กำลังโหลด...</div>
@@ -106,12 +122,13 @@ function render(): void {
         </section>
         <section id="statsPanel" class="hidden ${panelClass}">
             ${sectionTitle("สถิติละเอียด")}
-            <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+            <div class="mb-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]">
                 <input id="statsFrom" type="date" class="${fieldClass}" />
                 <input id="statsTo" type="date" value="${todayText()}" class="${fieldClass}" />
                 <select id="statsClass" class="${fieldClass}"><option value="">ทุกห้อง</option>${classOptions(bootstrap.classes, false)}</select>
                 <select id="statsGender" class="${fieldClass}">${genderOptions()}</select>
                 <button id="loadStatsButton" class="${primaryButtonClass}">ดูสถิติ</button>
+                <button id="exportDetailedButton" class="${secondaryButtonClass}">ส่งออกข้อมูล</button>
             </div>
             <div id="statsContent" class="text-sm text-slate-600">เลือกช่วงวันที่แล้วกดดูสถิติ</div>
         </section>`,
@@ -156,6 +173,12 @@ function render(): void {
         ?.addEventListener("click", () => {
             void loadStats();
         });
+    document
+        .getElementById("exportDailyButton")
+        ?.addEventListener("click", () => openExportDialog("daily"));
+    document
+        .getElementById("exportDetailedButton")
+        ?.addEventListener("click", () => openExportDialog("detailed"));
 }
 
 function tabButton(id: string, label: string, active: boolean): string {
@@ -243,6 +266,7 @@ async function loadOverview(): Promise<void> {
             token,
             date,
         );
+        currentOverview = overview;
         const content = document.getElementById("overviewContent");
         if (!content) {
             return;
@@ -509,24 +533,31 @@ async function loadStats(): Promise<void> {
     ) as HTMLButtonElement;
     setBusy(button, true, "กำลังโหลด...");
     try {
-        const stats = await googleScriptRun("getAttendanceStats", token, {
-            dateFrom: (document.getElementById("statsFrom") as HTMLInputElement)
-                .value,
-            dateTo: (document.getElementById("statsTo") as HTMLInputElement)
-                .value,
-            classId: (
-                document.getElementById("statsClass") as HTMLSelectElement
-            ).value,
-            gender: (
-                document.getElementById("statsGender") as HTMLSelectElement
-            ).value as StudentGender | "",
-        });
+        const stats = await googleScriptRun(
+            "getAttendanceStats",
+            token,
+            statsFiltersFromForm(),
+        );
+        currentStats = stats;
         renderStats(stats);
     } catch (error) {
         showNotice("indexNotice", messageText(error), "error");
     } finally {
         setBusy(button, false);
     }
+}
+
+function statsFiltersFromForm(): AttendanceStatsFilters {
+    return {
+        dateFrom: (document.getElementById("statsFrom") as HTMLInputElement)
+            .value,
+        dateTo: (document.getElementById("statsTo") as HTMLInputElement).value,
+        classId: (document.getElementById("statsClass") as HTMLSelectElement)
+            .value,
+        gender: (
+            document.getElementById("statsGender") as HTMLSelectElement
+        ).value as StudentGender | "",
+    };
 }
 
 function renderStats(stats: AttendanceStats): void {
@@ -551,6 +582,180 @@ function statsCell(
     colorClass = "text-slate-900",
 ): string {
     return `<span class="font-semibold ${colorClass}">${value}</span><span class="ml-2 text-slate-500">${formatPercent(value, total)}</span>`;
+}
+
+function openExportDialog(reportType: ReportTemplate["reportType"]): void {
+    const templates = bootstrap.reportTemplates.filter(
+        (template) => template.reportType === reportType,
+    );
+    if (templates.length === 0) {
+        showNotice(
+            "indexNotice",
+            reportType === "daily"
+                ? "ยังไม่มีแบบฟอร์มรายวันที่เปิดใช้งาน กรุณาให้ Admin สร้างหรือเปิดใช้งานแบบฟอร์มก่อน"
+                : "ยังไม่มีแบบฟอร์มสถิติละเอียดที่เปิดใช้งาน กรุณาให้ Admin สร้างหรือเปิดใช้งานแบบฟอร์มก่อน",
+            "error",
+        );
+        return;
+    }
+    document.getElementById("teacherExportDialog")?.remove();
+    const defaultTemplate =
+        templates.find((template) => template.isDefault) ?? templates[0];
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        `<div id="teacherExportDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-labelledby="teacherExportDialogTitle">
+            <div class="w-full max-w-lg rounded-xl border border-white/70 bg-white p-5 shadow-2xl">
+                <div class="mb-4 flex items-start justify-between gap-4">
+                    <div><h2 id="teacherExportDialogTitle" class="text-xl font-bold text-slate-950">ส่งออก${reportType === "daily" ? "ภาพรวมรายวัน" : "สถิติละเอียด"}</h2><p class="mt-1 text-sm text-slate-600">เลือกแบบฟอร์มที่ Admin เตรียมไว้และรูปแบบไฟล์</p></div>
+                    <button type="button" data-close-export-dialog class="rounded-md px-2 py-1 text-xl text-slate-500 hover:bg-slate-100" aria-label="ปิด">×</button>
+                </div>
+                <div class="space-y-4">
+                    <label class="block text-sm font-semibold text-slate-700">แบบฟอร์ม
+                        <select id="teacherExportTemplate" class="mt-1 w-full ${fieldClass}">${templates
+                            .map(
+                                (template) =>
+                                    `<option value="${escapeHtml(template.id)}" ${template.id === defaultTemplate.id ? "selected" : ""}>${escapeHtml(template.name)}${template.isDefault ? " · ค่าเริ่มต้น" : ""}</option>`,
+                            )
+                            .join("")}</select>
+                    </label>
+                    <label class="block text-sm font-semibold text-slate-700">รูปแบบ
+                        <select id="teacherExportFormat" class="mt-1 w-full ${fieldClass}">
+                            <option value="print">พิมพ์ / บันทึกเป็น PDF</option>
+                            <option value="html">HTML · รักษารูปแบบเอกสาร</option>
+                            <option value="csv">CSV · ข้อมูลตารางสำหรับ Excel</option>
+                        </select>
+                    </label>
+                    <div class="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">การเลือก PDF จะเปิดหน้าต่างพิมพ์ของเบราว์เซอร์ จากนั้นเลือกเครื่องพิมพ์ “บันทึกเป็น PDF” ได้ทันที</div>
+                </div>
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" data-close-export-dialog class="${secondaryButtonClass}">ยกเลิก</button>
+                    <button id="confirmTeacherExportButton" type="button" class="${primaryButtonClass}">ส่งออก</button>
+                </div>
+            </div>
+        </div>`,
+    );
+    document
+        .querySelectorAll<HTMLElement>("[data-close-export-dialog]")
+        .forEach((element) =>
+            element.addEventListener("click", closeExportDialog),
+        );
+    document
+        .getElementById("confirmTeacherExportButton")
+        ?.addEventListener("click", () => void exportTeacherReport(reportType));
+}
+
+function closeExportDialog(): void {
+    document.getElementById("teacherExportDialog")?.remove();
+}
+
+async function exportTeacherReport(
+    reportType: ReportTemplate["reportType"],
+): Promise<void> {
+    const templateId = (
+        document.getElementById("teacherExportTemplate") as HTMLSelectElement
+    ).value;
+    const format = (
+        document.getElementById("teacherExportFormat") as HTMLSelectElement
+    ).value as "print" | "html" | "csv";
+    const template = bootstrap.reportTemplates.find(
+        (row) => row.id === templateId && row.reportType === reportType,
+    );
+    if (!template) {
+        showNotice("indexNotice", "ไม่พบแบบฟอร์มที่เลือก", "error");
+        return;
+    }
+    const printWindow = format === "print" ? window.open("", "_blank") : null;
+    if (format === "print" && !printWindow) {
+        showNotice(
+            "indexNotice",
+            "เบราว์เซอร์ปิดกั้นหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up แล้วลองอีกครั้ง",
+            "error",
+        );
+        return;
+    }
+    const button = document.getElementById(
+        "confirmTeacherExportButton",
+    ) as HTMLButtonElement;
+    setBusy(button, true, "กำลังเตรียม...");
+    try {
+        const context = await reportExportContext(reportType);
+        const fileBaseName = reportFileBaseName(template, context);
+        if (format === "csv") {
+            downloadReportText(
+                buildReportCsv(template, context),
+                `${fileBaseName}.csv`,
+                "text/csv;charset=utf-8",
+            );
+        } else {
+            const year = bootstrap.system.currentYear;
+            const html = buildReportHtmlDocument(template, context, {
+                schoolName:
+                    bootstrap.system.schoolName || "ยังไม่ได้ตั้งชื่อโรงเรียน",
+                academicYear: year?.y ?? "-",
+                academicTerm: year?.t ?? "-",
+            });
+            if (format === "html") {
+                downloadReportText(
+                    html,
+                    `${fileBaseName}.html`,
+                    "text/html;charset=utf-8",
+                );
+            } else if (printWindow) {
+                writeReportToPrintWindow(printWindow, html);
+            }
+        }
+        closeExportDialog();
+        showNotice("indexNotice", "เตรียมรายงานสำหรับส่งออกเรียบร้อย", "ok");
+    } catch (error) {
+        printWindow?.close();
+        showNotice("indexNotice", messageText(error), "error");
+    } finally {
+        if (button.isConnected) {
+            setBusy(button, false);
+        }
+    }
+}
+
+async function reportExportContext(
+    reportType: ReportTemplate["reportType"],
+): Promise<ReportExportContext> {
+    if (reportType === "daily") {
+        const date = (
+            document.getElementById("overviewDate") as HTMLInputElement
+        ).value;
+        if (!date) {
+            throw new Error("กรุณาเลือกวันที่สำหรับรายงาน");
+        }
+        if (!currentOverview || currentOverview.date !== date) {
+            currentOverview = await googleScriptRun(
+                "getAttendanceOverview",
+                token,
+                date,
+            );
+        }
+        return { reportType: "daily", date, overview: currentOverview };
+    }
+    const filters = statsFiltersFromForm();
+    if (!currentStats || !sameStatsFilters(currentStats.filters, filters)) {
+        currentStats = await googleScriptRun(
+            "getAttendanceStats",
+            token,
+            filters,
+        );
+    }
+    return { reportType: "detailed", filters, stats: currentStats };
+}
+
+function sameStatsFilters(
+    left: AttendanceStatsFilters,
+    right: AttendanceStatsFilters,
+): boolean {
+    return (
+        (left.dateFrom ?? "") === (right.dateFrom ?? "") &&
+        (left.dateTo ?? "") === (right.dateTo ?? "") &&
+        (left.classId ?? "") === (right.classId ?? "") &&
+        (left.gender ?? "") === (right.gender ?? "")
+    );
 }
 
 void main().catch((error) => {

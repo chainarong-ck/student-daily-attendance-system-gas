@@ -37,6 +37,7 @@ export class ServerConstant {
         reportTemplateSectionLength: 12_000,
         reportTemplateTables: 10,
         reportTemplateTableColumns: 20,
+        reportTemplateHeaderRows: 6,
         tokenTtlMs: 7 * 24 * 60 * 60 * 1000,
     } as const;
 

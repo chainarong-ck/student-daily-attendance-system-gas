@@ -8,6 +8,7 @@ import type {
     ReportTableColumn,
     ReportTableDataSource,
     ReportTableDefinition,
+    ReportTableHeaderCell,
     ReportType,
     Student,
     StudentGender,
@@ -52,6 +53,7 @@ let editingTemplateCard: HTMLElement | null = null;
 let editingTemplateConfig: ReportTemplateConfig | null = null;
 let activeTemplateSection: "header" | "content" | "footer" = "header";
 let selectedTemplateTableId = "";
+let selectedHeaderCellIds = new Set<string>();
 let lastTemplateEditorRange: Range | null = null;
 
 const panelClass =
@@ -487,37 +489,43 @@ function defaultReportTemplateConfig(
 
 function defaultReportTable(reportType: ReportType): ReportTableDefinition {
     if (reportType === "daily") {
+        const columns = [
+            reportColumn("class", "ชั้น/ห้อง", "class.name", 20, "left"),
+            reportColumn("students", "นักเรียนทั้งหมด", "students.total", 16),
+            reportColumn("present", "มา", "present.total", 16),
+            reportColumn("absent", "ขาด", "absent.total", 16),
+            reportColumn("late", "สาย", "late.total", 16),
+            reportColumn("leave", "ลา", "leave.total", 16),
+        ];
         return {
             id: "daily-summary",
             name: "สรุปตามห้องเรียน",
             dataSource: "daily.classes",
             showHeader: true,
             showTotals: true,
-            columns: [
-                reportColumn("class", "ชั้น/ห้อง", "class.name", 20, "left"),
-                reportColumn("students", "นักเรียนทั้งหมด", "students.total", 16),
-                reportColumn("present", "มา", "present.total", 16),
-                reportColumn("absent", "ขาด", "absent.total", 16),
-                reportColumn("late", "สาย", "late.total", 16),
-                reportColumn("leave", "ลา", "leave.total", 16),
-            ],
+            columns,
+            headerRowCount: 1,
+            headerCells: defaultReportHeaderCells(columns),
         };
     }
+    const columns = [
+        reportColumn("class", "ห้อง", "class.name", 12),
+        reportColumn("number", "เลขที่", "student.number", 8),
+        reportColumn("name", "ชื่อ-สกุล", "student.fullName", 28, "left"),
+        reportColumn("present", "มา", "present.count", 13),
+        reportColumn("absent", "ขาด", "absent.count", 13),
+        reportColumn("late", "สาย", "late.count", 13),
+        reportColumn("leave", "ลา", "leave.count", 13),
+    ];
     return {
         id: "detailed-students",
         name: "สถิติรายบุคคล",
         dataSource: "detailed.students",
         showHeader: true,
         showTotals: false,
-        columns: [
-            reportColumn("class", "ห้อง", "class.name", 12),
-            reportColumn("number", "เลขที่", "student.number", 8),
-            reportColumn("name", "ชื่อ-สกุล", "student.fullName", 28, "left"),
-            reportColumn("present", "มา", "present.count", 13),
-            reportColumn("absent", "ขาด", "absent.count", 13),
-            reportColumn("late", "สาย", "late.count", 13),
-            reportColumn("leave", "ลา", "leave.count", 13),
-        ],
+        columns,
+        headerRowCount: 1,
+        headerCells: defaultReportHeaderCells(columns),
     };
 }
 
@@ -528,7 +536,27 @@ function reportColumn(
     widthPercent: number,
     align: ReportTableColumn["align"] = "center",
 ): ReportTableColumn {
-    return { id, header, valueToken, widthPercent, align };
+    return {
+        id,
+        header,
+        valueToken,
+        widthPercent,
+        align,
+        mergeRepeatingValues: false,
+    };
+}
+
+function defaultReportHeaderCells(
+    columns: ReportTableColumn[],
+): ReportTableHeaderCell[] {
+    return columns.map((column, columnIndex) => ({
+        id: `head-${column.id}`,
+        text: column.header,
+        rowIndex: 0,
+        columnIndex,
+        rowSpan: 1,
+        columnSpan: 1,
+    }));
 }
 
 type TemplateTokenOption = {
@@ -551,6 +579,27 @@ const globalTemplateTokens: TemplateTokenOption[] = [
 ];
 
 const tableTokenOptions: Record<ReportTableDataSource, TemplateTokenOption[]> = {
+    "daily.school": [
+        { token: "students.male", label: "นักเรียนชายทั้งโรงเรียน", sample: "66" },
+        { token: "students.female", label: "นักเรียนหญิงทั้งโรงเรียน", sample: "70" },
+        { token: "students.total", label: "นักเรียนรวมทั้งโรงเรียน", sample: "136" },
+        { token: "present.male", label: "มาชาย", sample: "62" },
+        { token: "present.female", label: "มาหญิง", sample: "67" },
+        { token: "present.total", label: "มารวม", sample: "129" },
+        { token: "present.percent", label: "ร้อยละมา", sample: "94.85%" },
+        { token: "absent.male", label: "ขาดชาย", sample: "2" },
+        { token: "absent.female", label: "ขาดหญิง", sample: "1" },
+        { token: "absent.total", label: "ขาดรวม", sample: "3" },
+        { token: "absent.percent", label: "ร้อยละขาด", sample: "2.21%" },
+        { token: "late.male", label: "สายชาย", sample: "1" },
+        { token: "late.female", label: "สายหญิง", sample: "1" },
+        { token: "late.total", label: "สายรวม", sample: "2" },
+        { token: "late.percent", label: "ร้อยละสาย", sample: "1.47%" },
+        { token: "leave.male", label: "ลาชาย", sample: "1" },
+        { token: "leave.female", label: "ลาหญิง", sample: "1" },
+        { token: "leave.total", label: "ลารวม", sample: "2" },
+        { token: "leave.percent", label: "ร้อยละลา", sample: "1.47%" },
+    ],
     "daily.classes": [
         { token: "class.name", label: "ชั้น/ห้อง", sample: "ม.1/1" },
         { token: "students.male", label: "นักเรียนชาย", sample: "12" },
@@ -606,6 +655,7 @@ function openReportTemplateEditor(card: HTMLElement): void {
     );
     activeTemplateSection = "header";
     selectedTemplateTableId = editingTemplateConfig.tables[0]?.id ?? "";
+    selectedHeaderCellIds.clear();
     document.getElementById("reportTemplateEditorModal")?.remove();
     document.body.insertAdjacentHTML("beforeend", reportTemplateEditorHtml());
     bindReportTemplateEditor();
@@ -1049,16 +1099,36 @@ function reportTableFormHtml(table: ReportTableDefinition): string {
             <label class="text-sm font-medium">แหล่งข้อมูล<select data-table-field="dataSource" class="mt-1 ${fieldClass}">${tableDataSourceOptions(table.dataSource)}</select></label>
         </div>
         <div class="flex flex-wrap gap-5 rounded-md bg-slate-50 p-3 text-sm"><label class="flex items-center gap-2"><input data-table-field="showHeader" type="checkbox" ${checked(table.showHeader)} /> แสดงหัวตาราง</label><label class="flex items-center gap-2"><input data-table-field="showTotals" type="checkbox" ${checked(table.showTotals)} /> แสดงแถวรวม</label></div>
+        ${reportHeaderGridDesignerHtml(table)}
         <div>
             <div class="mb-2 flex items-center justify-between"><div><h4 class="font-semibold">คอลัมน์</h4><p class="text-xs text-slate-500">เลือกค่าที่ระบบเตรียมไว้ ความกว้างเป็นสัดส่วนเปอร์เซ็นต์ของตาราง</p></div><button type="button" data-add-table-column class="${secondaryButtonClass}">+ คอลัมน์</button></div>
-            <div class="overflow-x-auto"><table class="w-full min-w-[780px] text-sm"><thead class="${tableHeadClass}"><tr><th class="p-2">หัวคอลัมน์</th><th class="p-2">ข้อมูล/สูตรคำนวณ</th><th class="p-2 w-24">กว้าง %</th><th class="p-2 w-28">จัดแนว</th><th class="p-2 w-36"></th></tr></thead><tbody>${table.columns.map((column, index) => reportTableColumnRowHtml(column, table.dataSource, index)).join("")}</tbody></table></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[920px] text-sm"><thead class="${tableHeadClass}"><tr><th class="p-2">ชื่ออ้างอิง</th><th class="p-2">ข้อมูล/สูตรคำนวณ</th><th class="p-2 w-24">กว้าง %</th><th class="p-2 w-28">จัดแนว</th><th class="p-2 w-32">รวมค่าซ้ำ</th><th class="p-2 w-36"></th></tr></thead><tbody>${table.columns.map((column, index) => reportTableColumnRowHtml(column, table.dataSource, index)).join("")}</tbody></table></div>
         </div>
         <div class="rounded-md border border-teal-100 bg-teal-50 p-3"><h4 class="text-sm font-semibold text-teal-900">Token ของตารางนี้</h4><code class="mt-1 block text-sm text-teal-800">{{table:${escapeHtml(table.id)}}}</code></div>
     </div>`;
 }
 
+function reportHeaderGridDesignerHtml(table: ReportTableDefinition): string {
+    return `<div class="rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div><h4 class="font-semibold text-indigo-950">โครงสร้างหัวตารางและการผสานเซลล์</h4><p class="text-xs text-indigo-800">เลือกเซลล์ที่อยู่ติดกันเป็นรูปสี่เหลี่ยม แล้วกดรวมเซลล์ สามารถรวมได้ทั้งแนวนอนและแนวตั้ง</p></div>
+            <div class="flex flex-wrap gap-2"><button type="button" data-add-header-row class="${secondaryButtonClass}">+ แถวหัวตาราง</button><button type="button" data-remove-header-row class="${secondaryButtonClass}" ${table.headerRowCount <= 1 ? "disabled" : ""}>− แถวสุดท้าย</button><button type="button" data-merge-header-cells class="${primaryButtonClass} text-sm">รวมเซลล์ที่เลือก</button><button type="button" data-unmerge-header-cells class="${secondaryButtonClass}">แยกเซลล์ที่เลือก</button></div>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full min-w-[700px] table-fixed border-collapse bg-white"><tbody>${Array.from({ length: table.headerRowCount }, (_, rowIndex) => `<tr>${table.headerCells.filter((cell) => cell.rowIndex === rowIndex).sort((a, b) => a.columnIndex - b.columnIndex).map(reportHeaderCellEditorHtml).join("")}</tr>`).join("")}</tbody></table></div>
+        <p class="mt-2 text-xs text-slate-500">เซลล์ที่เลือก: ${selectedHeaderCellIds.size} · จำนวนแถวหัวตาราง: ${table.headerRowCount}</p>
+    </div>`;
+}
+
+function reportHeaderCellEditorHtml(cell: ReportTableHeaderCell): string {
+    return `<td rowspan="${cell.rowSpan}" colspan="${cell.columnSpan}" style="width:auto" class="border-2 ${selectedHeaderCellIds.has(cell.id) ? "border-orange-500 bg-orange-50" : "border-indigo-200 bg-white"} p-2 align-middle">
+        <label class="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-500"><input type="checkbox" data-select-header-cell value="${escapeHtml(cell.id)}" ${checked(selectedHeaderCellIds.has(cell.id))} /> เลือก (${cell.rowSpan}×${cell.columnSpan})</label>
+        <input data-header-cell-text data-id="${escapeHtml(cell.id)}" maxlength="100" value="${escapeHtml(cell.text)}" class="${compactFieldClass} text-center font-semibold" />
+    </td>`;
+}
+
 function tableDataSourceOptions(selected: ReportTableDataSource): string {
     const options: Array<[ReportTableDataSource, string]> = [
+        ["daily.school", "ภาพรวมรายวัน · สรุปทั้งโรงเรียน"],
         ["daily.classes", "ภาพรวมรายวัน · สรุปตามห้อง"],
         ["daily.statusStudents", "ภาพรวมรายวัน · รายชื่อนักเรียนตามสถานะ"],
         ["detailed.students", "สถิติละเอียด · รายบุคคล"],
@@ -1081,6 +1151,7 @@ function reportTableColumnRowHtml(
         <td class="p-2"><select data-column-field="valueToken" class="${compactFieldClass}">${tableTokenOptions[dataSource].map((item) => `<option value="${item.token}" ${item.token === column.valueToken ? "selected" : ""}>${item.label} · ${item.token}</option>`).join("")}</select></td>
         <td class="p-2"><input data-column-field="widthPercent" type="number" min="1" max="100" value="${column.widthPercent}" class="${compactFieldClass}" /></td>
         <td class="p-2"><select data-column-field="align" class="${compactFieldClass}"><option value="left" ${column.align === "left" ? "selected" : ""}>ซ้าย</option><option value="center" ${column.align === "center" ? "selected" : ""}>กลาง</option><option value="right" ${column.align === "right" ? "selected" : ""}>ขวา</option></select></td>
+        <td class="p-2 text-center"><input data-column-field="mergeRepeatingValues" type="checkbox" ${checked(column.mergeRepeatingValues)} title="รวมเซลล์แนวตั้งเมื่อค่าของแถวที่ติดกันเหมือนกัน" /></td>
         <td class="p-2"><div class="flex justify-end gap-1"><button type="button" data-move-column="up" data-index="${index}" class="rounded bg-slate-100 px-2 py-1" title="เลื่อนขึ้น">↑</button><button type="button" data-move-column="down" data-index="${index}" class="rounded bg-slate-100 px-2 py-1" title="เลื่อนลง">↓</button><button type="button" data-delete-table-column data-index="${index}" class="rounded bg-red-50 px-2 py-1 font-semibold text-red-700">ลบ</button></div></td>
     </tr>`;
 }
@@ -1109,27 +1180,38 @@ function addTemplateTable(): void {
             ? "detailed.students"
             : "daily.classes";
     const token = tableTokenOptions[dataSource][0];
+    const columns = [
+        reportColumn(
+            `col-${Date.now().toString(36)}`,
+            token.label,
+            token.token,
+            100,
+        ),
+    ];
     config.tables.push({
         id,
         name: `ตาราง ${config.tables.length + 1}`,
         dataSource,
         showHeader: true,
         showTotals: false,
-        columns: [
-            reportColumn(
-                `col-${Date.now().toString(36)}`,
-                token.label,
-                token.token,
-                100,
-            ),
-        ],
+        columns,
+        headerRowCount: 1,
+        headerCells: defaultReportHeaderCells(columns),
     });
     selectedTemplateTableId = id;
+    selectedHeaderCellIds.clear();
     renderTableDesigner();
     renderReportTemplatePreview();
 }
 
-function handleTableDesignerInput(): void {
+function handleTableDesignerInput(event: Event): void {
+    const target = event.target as HTMLElement;
+    // Checkbox selection is UI-only. Its following `change` event owns the
+    // selection state and rerender; previewing here would repair every table
+    // before that state has been recorded.
+    if (target.matches("[data-select-header-cell]")) {
+        return;
+    }
     syncSelectedTableFromDesigner();
     renderReportTemplatePreview();
 }
@@ -1139,10 +1221,21 @@ function handleTableDesignerChange(event: Event): void {
     if (target.id === "templateTableSelect") {
         syncSelectedTableFromDesigner();
         selectedTemplateTableId = (target as HTMLSelectElement).value;
+        selectedHeaderCellIds.clear();
         renderTableDesigner();
         return;
     }
     syncSelectedTableFromDesigner();
+    if (target.matches("[data-select-header-cell]")) {
+        const checkbox = target as HTMLInputElement;
+        if (checkbox.checked) {
+            selectedHeaderCellIds.add(checkbox.value);
+        } else {
+            selectedHeaderCellIds.delete(checkbox.value);
+        }
+        renderTableDesigner();
+        return;
+    }
     if (target.matches('[data-table-field="dataSource"]')) {
         const table = selectedReportTable();
         if (table) {
@@ -1170,7 +1263,19 @@ function handleTableDesignerClick(event: Event): void {
         return;
     }
     syncSelectedTableFromDesigner();
-    if (target.matches("[data-insert-table-token]")) {
+    if (target.matches("[data-add-header-row]")) {
+        addReportTableHeaderRow(table);
+        renderTableDesigner();
+    } else if (target.matches("[data-remove-header-row]")) {
+        removeReportTableHeaderRow(table);
+        renderTableDesigner();
+    } else if (target.matches("[data-merge-header-cells]")) {
+        mergeSelectedReportHeaderCells(table);
+        renderTableDesigner();
+    } else if (target.matches("[data-unmerge-header-cells]")) {
+        unmergeSelectedReportHeaderCells(table);
+        renderTableDesigner();
+    } else if (target.matches("[data-insert-table-token]")) {
         insertHtmlAtEditorSelection(`<p>{{table:${escapeHtml(table.id)}}}</p>`);
     } else if (target.matches("[data-delete-template-table]")) {
         if (!window.confirm(`ลบตาราง “${table.name}” ใช่หรือไม่`)) {
@@ -1178,6 +1283,7 @@ function handleTableDesignerClick(event: Event): void {
         }
         config.tables = config.tables.filter((row) => row.id !== table.id);
         selectedTemplateTableId = config.tables[0]?.id ?? "";
+        selectedHeaderCellIds.clear();
         renderTableDesigner();
     } else if (target.matches("[data-add-table-column]")) {
         if (table.columns.length >= 20) {
@@ -1193,6 +1299,7 @@ function handleTableDesignerClick(event: Event): void {
                 10,
             ),
         );
+        appendHeaderColumn(table);
         renderTableDesigner();
     } else if (target.matches("[data-delete-table-column]")) {
         const index = Number(target.dataset.index);
@@ -1201,6 +1308,7 @@ function handleTableDesignerClick(event: Event): void {
             return;
         }
         table.columns.splice(index, 1);
+        removeHeaderColumn(table, index);
         renderTableDesigner();
     } else if (target.matches("[data-move-column]")) {
         const index = Number(target.dataset.index);
@@ -1240,6 +1348,16 @@ function syncSelectedTableFromDesigner(): void {
         container.querySelector<HTMLInputElement>(
             '[data-table-field="showTotals"]',
         )?.checked ?? false;
+    container
+        .querySelectorAll<HTMLInputElement>("[data-header-cell-text]")
+        .forEach((input) => {
+            const cell = table.headerCells.find(
+                (row) => row.id === input.dataset.id,
+            );
+            if (cell) {
+                cell.text = input.value.trim();
+            }
+        });
     table.columns = Array.from(
         container.querySelectorAll<HTMLElement>("[data-table-column]"),
     ).map((row) => ({
@@ -1265,7 +1383,320 @@ function syncSelectedTableFromDesigner(): void {
         align: (row.querySelector<HTMLSelectElement>(
             '[data-column-field="align"]',
         )?.value ?? "center") as ReportTableColumn["align"],
+        mergeRepeatingValues:
+            row.querySelector<HTMLInputElement>(
+                '[data-column-field="mergeRepeatingValues"]',
+            )?.checked ?? false,
     }));
+}
+
+function addReportTableHeaderRow(table: ReportTableDefinition): void {
+    if (table.headerRowCount >= 6) {
+        window.alert("เพิ่มหัวตารางได้ไม่เกิน 6 แถว");
+        return;
+    }
+    const rowIndex = table.headerRowCount;
+    table.headerRowCount += 1;
+    table.columns.forEach((column, columnIndex) => {
+        table.headerCells.push(
+            createReportHeaderCell(
+                rowIndex,
+                columnIndex,
+                column.header,
+            ),
+        );
+    });
+    selectedHeaderCellIds.clear();
+}
+
+function removeReportTableHeaderRow(table: ReportTableDefinition): void {
+    if (table.headerRowCount <= 1) {
+        return;
+    }
+    const removedRow = table.headerRowCount - 1;
+    table.headerCells = table.headerCells
+        .filter((cell) => cell.rowIndex < removedRow)
+        .map((cell) => ({
+            ...cell,
+            rowSpan:
+                cell.rowIndex + cell.rowSpan > removedRow
+                    ? Math.max(1, cell.rowSpan - 1)
+                    : cell.rowSpan,
+        }));
+    table.headerRowCount -= 1;
+    selectedHeaderCellIds.clear();
+    repairReportTableHeaderLayout(table);
+}
+
+function mergeSelectedReportHeaderCells(table: ReportTableDefinition): void {
+    const cells = table.headerCells.filter((cell) =>
+        selectedHeaderCellIds.has(cell.id),
+    );
+    if (cells.length < 2) {
+        window.alert("กรุณาเลือกอย่างน้อย 2 เซลล์เพื่อรวม");
+        return;
+    }
+    const minRow = Math.min(...cells.map((cell) => cell.rowIndex));
+    const minColumn = Math.min(...cells.map((cell) => cell.columnIndex));
+    const maxRow = Math.max(
+        ...cells.map((cell) => cell.rowIndex + cell.rowSpan),
+    );
+    const maxColumn = Math.max(
+        ...cells.map((cell) => cell.columnIndex + cell.columnSpan),
+    );
+    const selectedArea = cells.reduce(
+        (total, cell) => total + cell.rowSpan * cell.columnSpan,
+        0,
+    );
+    const rectangleArea = (maxRow - minRow) * (maxColumn - minColumn);
+    if (selectedArea !== rectangleArea) {
+        window.alert(
+            "เซลล์ที่เลือกต้องอยู่ติดกันและครอบคลุมพื้นที่รูปสี่เหลี่ยมโดยไม่มีช่องว่าง",
+        );
+        return;
+    }
+    const selectedSet = new Set(cells.map((cell) => cell.id));
+    const firstText =
+        cells
+            .sort(
+                (a, b) =>
+                    a.rowIndex - b.rowIndex ||
+                    a.columnIndex - b.columnIndex,
+            )
+            .find((cell) => cell.text)?.text ?? "";
+    table.headerCells = table.headerCells.filter(
+        (cell) => !selectedSet.has(cell.id),
+    );
+    const merged = createReportHeaderCell(minRow, minColumn, firstText);
+    merged.rowSpan = maxRow - minRow;
+    merged.columnSpan = maxColumn - minColumn;
+    table.headerCells.push(merged);
+    selectedHeaderCellIds.clear();
+    selectedHeaderCellIds.add(merged.id);
+    repairReportTableHeaderLayout(table);
+}
+
+function unmergeSelectedReportHeaderCells(
+    table: ReportTableDefinition,
+): void {
+    const selected = table.headerCells.filter((cell) =>
+        selectedHeaderCellIds.has(cell.id),
+    );
+    if (selected.length === 0) {
+        window.alert("กรุณาเลือกเซลล์ที่ต้องการแยก");
+        return;
+    }
+    const selectedSet = new Set(selected.map((cell) => cell.id));
+    const replacements: ReportTableHeaderCell[] = [];
+    selected.forEach((cell) => {
+        for (
+            let row = cell.rowIndex;
+            row < cell.rowIndex + cell.rowSpan;
+            row += 1
+        ) {
+            for (
+                let column = cell.columnIndex;
+                column < cell.columnIndex + cell.columnSpan;
+                column += 1
+            ) {
+                const defaultText =
+                    row === table.headerRowCount - 1
+                        ? (table.columns[column]?.header ?? "")
+                        : "";
+                replacements.push(
+                    createReportHeaderCell(
+                        row,
+                        column,
+                        row === cell.rowIndex && column === cell.columnIndex
+                            ? cell.text
+                            : defaultText,
+                    ),
+                );
+            }
+        }
+    });
+    table.headerCells = [
+        ...table.headerCells.filter((cell) => !selectedSet.has(cell.id)),
+        ...replacements,
+    ];
+    selectedHeaderCellIds.clear();
+    repairReportTableHeaderLayout(table);
+}
+
+function appendHeaderColumn(table: ReportTableDefinition): void {
+    const columnIndex = table.columns.length - 1;
+    table.headerCells.push(
+        ...Array.from({ length: table.headerRowCount }, (_, rowIndex) =>
+            createReportHeaderCell(
+                rowIndex,
+                columnIndex,
+                rowIndex === table.headerRowCount - 1
+                    ? table.columns[columnIndex].header
+                    : "",
+            ),
+        ),
+    );
+    repairReportTableHeaderLayout(table);
+}
+
+function removeHeaderColumn(
+    table: ReportTableDefinition,
+    removedColumnIndex: number,
+): void {
+    table.headerCells = table.headerCells
+        .filter(
+            (cell) =>
+                !(
+                    cell.columnIndex === removedColumnIndex &&
+                    cell.columnSpan === 1
+                ),
+        )
+        .map((cell) => {
+            const coversRemoved =
+                cell.columnIndex <= removedColumnIndex &&
+                cell.columnIndex + cell.columnSpan > removedColumnIndex;
+            return {
+                ...cell,
+                columnIndex:
+                    cell.columnIndex > removedColumnIndex
+                        ? cell.columnIndex - 1
+                        : cell.columnIndex,
+                columnSpan:
+                    coversRemoved && cell.columnSpan > 1
+                        ? cell.columnSpan - 1
+                        : cell.columnSpan,
+            };
+        });
+    selectedHeaderCellIds.clear();
+    repairReportTableHeaderLayout(table);
+}
+
+function repairReportTableHeaderLayout(table: ReportTableDefinition): void {
+    table.headerRowCount = Math.max(
+        1,
+        Math.min(6, Math.trunc(Number(table.headerRowCount) || 1)),
+    );
+    const rowCount = table.headerRowCount;
+    const columnCount = table.columns.length;
+    const occupied = Array.from({ length: rowCount }, () =>
+        Array.from({ length: columnCount }, () => false),
+    );
+    const ids = new Set<string>();
+    const repaired: ReportTableHeaderCell[] = [];
+    [...table.headerCells]
+        .sort(
+            (a, b) =>
+                a.rowIndex - b.rowIndex || a.columnIndex - b.columnIndex,
+        )
+        .forEach((source) => {
+            const rowIndex = Math.max(0, Math.trunc(Number(source.rowIndex)));
+            const columnIndex = Math.max(
+                0,
+                Math.trunc(Number(source.columnIndex)),
+            );
+            if (rowIndex >= rowCount || columnIndex >= columnCount) {
+                return;
+            }
+            const rowSpan = Math.max(
+                1,
+                Math.min(
+                    Math.trunc(Number(source.rowSpan) || 1),
+                    rowCount - rowIndex,
+                ),
+            );
+            const columnSpan = Math.max(
+                1,
+                Math.min(
+                    Math.trunc(Number(source.columnSpan) || 1),
+                    columnCount - columnIndex,
+                ),
+            );
+            let overlaps = false;
+            for (let row = rowIndex; row < rowIndex + rowSpan; row += 1) {
+                for (
+                    let column = columnIndex;
+                    column < columnIndex + columnSpan;
+                    column += 1
+                ) {
+                    overlaps ||= occupied[row][column];
+                }
+            }
+            if (overlaps) {
+                return;
+            }
+            let id = source.id || createReportHeaderCellId(rowIndex, columnIndex);
+            if (ids.has(id)) {
+                id = createReportHeaderCellId(rowIndex, columnIndex);
+            }
+            ids.add(id);
+            for (let row = rowIndex; row < rowIndex + rowSpan; row += 1) {
+                for (
+                    let column = columnIndex;
+                    column < columnIndex + columnSpan;
+                    column += 1
+                ) {
+                    occupied[row][column] = true;
+                }
+            }
+            repaired.push({
+                id,
+                text: String(source.text ?? "").slice(0, 100),
+                rowIndex,
+                columnIndex,
+                rowSpan,
+                columnSpan,
+            });
+        });
+    for (let row = 0; row < rowCount; row += 1) {
+        for (let column = 0; column < columnCount; column += 1) {
+            if (!occupied[row][column]) {
+                const cell = createReportHeaderCell(
+                    row,
+                    column,
+                    row === rowCount - 1
+                        ? (table.columns[column]?.header ?? "")
+                        : "",
+                );
+                repaired.push(cell);
+                occupied[row][column] = true;
+            }
+        }
+    }
+    table.headerCells = repaired.sort(
+        (a, b) =>
+            a.rowIndex - b.rowIndex || a.columnIndex - b.columnIndex,
+    );
+    // Preview renders and repairs every table. Only the active table is
+    // allowed to prune the designer's current cell selection.
+    if (table.id === selectedTemplateTableId) {
+        selectedHeaderCellIds = new Set(
+            [...selectedHeaderCellIds].filter((id) =>
+                table.headerCells.some((cell) => cell.id === id),
+            ),
+        );
+    }
+}
+
+function createReportHeaderCell(
+    rowIndex: number,
+    columnIndex: number,
+    text: string,
+): ReportTableHeaderCell {
+    return {
+        id: createReportHeaderCellId(rowIndex, columnIndex),
+        text,
+        rowIndex,
+        columnIndex,
+        rowSpan: 1,
+        columnSpan: 1,
+    };
+}
+
+function createReportHeaderCellId(
+    rowIndex: number,
+    columnIndex: number,
+): string {
+    return `head-${rowIndex}-${columnIndex}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function renderReportTemplatePreview(): void {
@@ -1350,10 +1781,11 @@ function sampleReportTableHtml(table: ReportTableDefinition): string {
     const base = Object.fromEntries(
         options.map((item) => [item.token, item.sample]),
     ) as Record<string, string>;
-    const rows: Array<Record<string, string>> = [0, 1, 2].map(
+    const sampleRowIndexes = table.dataSource === "daily.school" ? [0] : [0, 1, 2];
+    const rows: Array<Record<string, string>> = sampleRowIndexes.map(
         (index) => ({
             ...base,
-            "class.name": ["ม.1/1", "ม.1/2", "ม.2/1"][index],
+            "class.name": ["ม.1/1", "ม.1/1", "ม.2/1"][index],
             "student.number": String(index + 1),
             "student.code": String(10001 + index),
             "student.fullName": [
@@ -1363,19 +1795,66 @@ function sampleReportTableHtml(table: ReportTableDefinition): string {
             ][index],
         }),
     );
-    const head = table.showHeader
-        ? `<thead><tr>${table.columns.map((column) => `<th style="border:1px solid #64748b;background:#f1f5f9;padding:4px;text-align:${column.align};width:${column.widthPercent}%">${escapeHtml(column.header)}</th>`).join("")}</tr></thead>`
-        : "";
+    const head = table.showHeader ? sampleReportHeaderHtml(table) : "";
     const body = rows
         .map(
-            (row) =>
-                `<tr>${table.columns.map((column) => `<td style="border:1px solid #64748b;padding:4px;text-align:${column.align}">${escapeHtml(row[column.valueToken] ?? `{{${column.valueToken}}}`)}</td>`).join("")}</tr>`,
+            (row, rowIndex) =>
+                `<tr>${table.columns
+                    .map((column) => {
+                        const value =
+                            row[column.valueToken] ??
+                            `{{${column.valueToken}}}`;
+                        if (
+                            column.mergeRepeatingValues &&
+                            rowIndex > 0 &&
+                            rows[rowIndex - 1][column.valueToken] === value
+                        ) {
+                            return "";
+                        }
+                        let rowSpan = 1;
+                        if (column.mergeRepeatingValues) {
+                            while (
+                                rowIndex + rowSpan < rows.length &&
+                                rows[rowIndex + rowSpan][column.valueToken] ===
+                                    value
+                            ) {
+                                rowSpan += 1;
+                            }
+                        }
+                        return `<td rowspan="${rowSpan}" style="border:1px solid #64748b;padding:4px;text-align:${column.align};vertical-align:middle">${escapeHtml(value)}</td>`;
+                    })
+                    .join("")}</tr>`,
         )
         .join("");
     const total = table.showTotals
         ? `<tfoot><tr>${table.columns.map((column, index) => `<td style="border:1px solid #64748b;background:#f8fafc;padding:4px;text-align:${column.align};font-weight:700">${index === 0 ? "รวม" : sampleTotalValue(column.valueToken)}</td>`).join("")}</tr></tfoot>`
         : "";
     return `<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:.88em;table-layout:fixed">${head}<tbody>${body}</tbody>${total}</table>`;
+}
+
+function sampleReportHeaderHtml(table: ReportTableDefinition): string {
+    repairReportTableHeaderLayout(table);
+    return `<thead>${Array.from(
+        { length: table.headerRowCount },
+        (_, rowIndex) =>
+            `<tr>${table.headerCells
+                .filter((cell) => cell.rowIndex === rowIndex)
+                .sort((a, b) => a.columnIndex - b.columnIndex)
+                .map((cell) => {
+                    const width = table.columns
+                        .slice(
+                            cell.columnIndex,
+                            cell.columnIndex + cell.columnSpan,
+                        )
+                        .reduce(
+                            (total, column) =>
+                                total + column.widthPercent,
+                            0,
+                        );
+                    return `<th rowspan="${cell.rowSpan}" colspan="${cell.columnSpan}" style="border:1px solid #64748b;background:#f1f5f9;padding:4px;text-align:center;vertical-align:middle;width:${width}%">${escapeHtml(cell.text)}</th>`;
+                })
+                .join("")}</tr>`,
+    ).join("")}</thead>`;
 }
 
 function sampleTotalValue(token: string): string {
@@ -2245,11 +2724,36 @@ function parseReportTemplateConfig(
                 ...fallback.sections,
                 ...(parsed.sections ?? {}),
             },
-            tables: parsed.tables ?? fallback.tables,
+            tables: (parsed.tables ?? fallback.tables).map(
+                normalizeClientReportTable,
+            ),
         };
     } catch {
         return fallback;
     }
+}
+
+function normalizeClientReportTable(
+    table: ReportTableDefinition,
+): ReportTableDefinition {
+    const columns = table.columns.map((column) => ({
+        ...column,
+        mergeRepeatingValues: Boolean(column.mergeRepeatingValues),
+    }));
+    const normalized: ReportTableDefinition = {
+        ...table,
+        columns,
+        headerRowCount: Math.max(
+            1,
+            Math.min(6, Number(table.headerRowCount) || 1),
+        ),
+        headerCells:
+            Array.isArray(table.headerCells) && table.headerCells.length > 0
+                ? table.headerCells.map((cell) => ({ ...cell }))
+                : defaultReportHeaderCells(columns),
+    };
+    repairReportTableHeaderLayout(normalized);
+    return normalized;
 }
 
 function fieldValue(container: ParentNode, field: string): string {

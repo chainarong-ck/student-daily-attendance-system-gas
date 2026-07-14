@@ -109,6 +109,7 @@ export function getIndexBootstrap(token: string): IndexBootstrap {
     return {
         system: MainConfig.getPublicState(),
         classes: ClassService.listClasses(database),
+        reportTemplates: ReportTemplateService.listEnabled(database),
     };
 }
 

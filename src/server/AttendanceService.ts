@@ -65,6 +65,7 @@ export class AttendanceService {
         ServerUtils.assertDateText(date);
         const database = AcademicYearService.ensureCurrentSheet();
         const classes = ClassService.listClasses(database);
+        const classById = new Map(classes.map((row) => [row.id, row]));
         const allStudents = StudentService.listStudents(undefined, database);
         const studentById = new Map(
             allStudents.map((student) => [student.id, student]),
@@ -154,6 +155,18 @@ export class AttendanceService {
             }),
             total,
             totalByGender,
+            attendanceRows: records.flatMap((record) => {
+                const student = studentById.get(record.studentId);
+                return student
+                    ? [
+                          {
+                              student,
+                              classRoom: classById.get(record.classId) ?? null,
+                              status: record.status,
+                          },
+                      ]
+                    : [];
+            }),
         };
     }
 

@@ -17,6 +17,7 @@ export type ReportType = "daily" | "detailed";
 export type ReportPageOrientation = "portrait" | "landscape";
 
 export type ReportTableDataSource =
+    | "daily.school"
     | "daily.classes"
     | "daily.statusStudents"
     | "detailed.students";
@@ -27,6 +28,16 @@ export type ReportTableColumn = {
     valueToken: string;
     widthPercent: number;
     align: "left" | "center" | "right";
+    mergeRepeatingValues: boolean;
+};
+
+export type ReportTableHeaderCell = {
+    id: string;
+    text: string;
+    rowIndex: number;
+    columnIndex: number;
+    rowSpan: number;
+    columnSpan: number;
 };
 
 export type ReportTableDefinition = {
@@ -36,6 +47,8 @@ export type ReportTableDefinition = {
     showHeader: boolean;
     showTotals: boolean;
     columns: ReportTableColumn[];
+    headerRowCount: number;
+    headerCells: ReportTableHeaderCell[];
 };
 
 export type ReportTemplateSections = {
@@ -155,6 +168,11 @@ export type AttendanceOverview = {
     }>;
     total: AttendanceSummary;
     totalByGender: GenderAttendanceSummary;
+    attendanceRows: Array<{
+        student: Student;
+        classRoom: ClassRoom | null;
+        status: AttendanceStatus;
+    }>;
 };
 
 export type AttendanceStatsFilters = {
@@ -192,6 +210,7 @@ export type LoginResult = {
 export type IndexBootstrap = {
     system: PublicSystemState;
     classes: ClassRoom[];
+    reportTemplates: ReportTemplate[];
 };
 
 export type AdminBootstrap = {
