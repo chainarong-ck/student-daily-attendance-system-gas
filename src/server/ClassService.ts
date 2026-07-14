@@ -19,6 +19,7 @@ export class ClassService {
                 `${a.grade}/${a.room}`.localeCompare(
                     `${b.grade}/${b.room}`,
                     "th",
+                    { numeric: true, sensitivity: "base" },
                 ),
             );
     }
@@ -63,7 +64,11 @@ export class ClassService {
 
     private static sortClasses(rows: ClassRoom[]): ClassRoom[] {
         return rows.sort((a, b) =>
-            `${a.grade}/${a.room}`.localeCompare(`${b.grade}/${b.room}`, "th"),
+            `${a.grade}/${a.room}`.localeCompare(
+                `${b.grade}/${b.room}`,
+                "th",
+                { numeric: true, sensitivity: "base" },
+            ),
         );
     }
 }

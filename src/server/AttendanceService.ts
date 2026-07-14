@@ -184,8 +184,12 @@ export class AttendanceService {
             );
         }
         const database = AcademicYearService.ensureCurrentSheet();
+        const classes = ClassService.listClasses(database);
         const classMap = new Map(
-            ClassService.listClasses(database).map((row) => [row.id, row]),
+            classes.map((row) => [row.id, row]),
+        );
+        const classOrder = new Map(
+            classes.map((classRoom, index) => [classRoom.id, index]),
         );
         const filterGenderText = ServerUtils.normalizeText(filters.gender);
         const genderFilter: StudentGender | "" = filterGenderText
@@ -194,7 +198,22 @@ export class AttendanceService {
         const students = StudentService.listStudents(
             filters.classId,
             database,
-        ).filter((student) => !genderFilter || student.gender === genderFilter);
+        )
+            .filter(
+                (student) =>
+                    !genderFilter || student.gender === genderFilter,
+            )
+            .sort(
+                (a, b) =>
+                    (classOrder.get(a.classId) ?? Number.MAX_SAFE_INTEGER) -
+                        (classOrder.get(b.classId) ??
+                            Number.MAX_SAFE_INTEGER) ||
+                    a.number.localeCompare(b.number, "th", {
+                        numeric: true,
+                        sensitivity: "base",
+                    }) ||
+                    a.fullName.localeCompare(b.fullName, "th"),
+            );
         const records = this.listRecords(database).filter((record) => {
             if (filters.classId && record.classId !== filters.classId) {
                 return false;
