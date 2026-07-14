@@ -1101,7 +1101,7 @@ function reportTableFormHtml(table: ReportTableDefinition): string {
         ${reportHeaderGridDesignerHtml(table)}
         <div>
             <div class="mb-2 flex items-center justify-between"><div><h4 class="font-semibold">คอลัมน์</h4><p class="text-xs text-slate-500">เลือกค่าที่ระบบเตรียมไว้ ความกว้างเป็นสัดส่วนเปอร์เซ็นต์ของตาราง</p></div><button type="button" data-add-table-column class="${secondaryButtonClass}">+ คอลัมน์</button></div>
-            <div class="overflow-x-auto"><table class="w-full min-w-[920px] text-sm"><thead class="${tableHeadClass}"><tr><th class="p-2">ชื่ออ้างอิง</th><th class="p-2">ข้อมูล/สูตรคำนวณ</th><th class="p-2 w-24">กว้าง %</th><th class="p-2 w-28">จัดแนว</th><th class="p-2 w-32">รวมค่าซ้ำ</th><th class="p-2 w-36"></th></tr></thead><tbody>${table.columns.map((column, index) => reportTableColumnRowHtml(column, table.dataSource, index)).join("")}</tbody></table></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-230 text-sm"><thead class="${tableHeadClass}"><tr><th class="p-2">ชื่ออ้างอิง</th><th class="p-2">ข้อมูล/สูตรคำนวณ</th><th class="p-2 w-24">กว้าง %</th><th class="p-2 w-28">จัดแนว</th><th class="p-2 w-32">รวมค่าซ้ำ</th><th class="p-2 w-36"></th></tr></thead><tbody>${table.columns.map((column, index) => reportTableColumnRowHtml(column, table.dataSource, index)).join("")}</tbody></table></div>
         </div>
         <div class="rounded-md border border-teal-100 bg-teal-50 p-3"><h4 class="text-sm font-semibold text-teal-900">Token ของตารางนี้</h4><code class="mt-1 block text-sm text-teal-800">{{table:${escapeHtml(table.id)}}}</code></div>
     </div>`;
@@ -1113,7 +1113,7 @@ function reportHeaderGridDesignerHtml(table: ReportTableDefinition): string {
             <div><h4 class="font-semibold text-indigo-950">โครงสร้างหัวตารางและการผสานเซลล์</h4><p class="text-xs text-indigo-800">เลือกเซลล์ที่อยู่ติดกันเป็นรูปสี่เหลี่ยม แล้วกดรวมเซลล์ สามารถรวมได้ทั้งแนวนอนและแนวตั้ง</p></div>
             <div class="flex flex-wrap gap-2"><button type="button" data-add-header-row class="${secondaryButtonClass}">+ แถวหัวตาราง</button><button type="button" data-remove-header-row class="${secondaryButtonClass}" ${table.headerRowCount <= 1 ? "disabled" : ""}>− แถวสุดท้าย</button><button type="button" data-merge-header-cells class="${primaryButtonClass} text-sm">รวมเซลล์ที่เลือก</button><button type="button" data-unmerge-header-cells class="${secondaryButtonClass}">แยกเซลล์ที่เลือก</button></div>
         </div>
-        <div class="overflow-x-auto"><table class="w-full min-w-[700px] table-fixed border-collapse bg-white"><tbody>${Array.from({ length: table.headerRowCount }, (_, rowIndex) => `<tr>${table.headerCells.filter((cell) => cell.rowIndex === rowIndex).sort((a, b) => a.columnIndex - b.columnIndex).map(reportHeaderCellEditorHtml).join("")}</tr>`).join("")}</tbody></table></div>
+        <div class="overflow-x-auto"><table class="w-full min-w-175 table-fixed border-collapse bg-white"><tbody>${Array.from({ length: table.headerRowCount }, (_, rowIndex) => `<tr>${table.headerCells.filter((cell) => cell.rowIndex === rowIndex).sort((a, b) => a.columnIndex - b.columnIndex).map(reportHeaderCellEditorHtml).join("")}</tr>`).join("")}</tbody></table></div>
         <p class="mt-2 text-xs text-slate-500">เซลล์ที่เลือก: ${selectedHeaderCellIds.size} · จำนวนแถวหัวตาราง: ${table.headerRowCount}</p>
     </div>`;
 }
