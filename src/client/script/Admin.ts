@@ -16,6 +16,7 @@ import type {
 } from "../../shared/types";
 import {
     ADMIN_TOKEN_KEY,
+    APP_TOKEN_KEY,
     bindShellActions,
     escapeHtml,
     messageText,
@@ -25,6 +26,7 @@ import {
     showLoginRequired,
     showNotice,
 } from "./client-utils";
+import { sanitizeReportHtml as sanitizeTemplateHtml } from "./report-html-sanitizer";
 
 type AdminTab =
     | "settings"
@@ -49,12 +51,15 @@ let activeAdminTab: AdminTab = "settings";
 let selectedStudentClassId = "";
 let selectedTemplateSourceYearKey = "";
 let sourceReportTemplates: ReportTemplate[] = [];
+let sourceTemplateRequestId = 0;
 let editingTemplateCard: HTMLElement | null = null;
 let editingTemplateConfig: ReportTemplateConfig | null = null;
 let activeTemplateSection: "header" | "content" | "footer" = "header";
 let selectedTemplateTableId = "";
 let selectedHeaderCellIds = new Set<string>();
 let lastTemplateEditorRange: Range | null = null;
+let reportPreviewFrameId: number | null = null;
+const dirtyAdminTabs = new Set<AdminTab>();
 
 const panelClass =
     "rounded-lg border border-white/70 bg-white/95 p-5 shadow-xl shadow-slate-200/60";
@@ -89,6 +94,7 @@ async function main(): Promise<void> {
 }
 
 function render(): void {
+    dirtyAdminTabs.clear();
     document.body.innerHTML = shellHtml(
         "Admin",
         `
@@ -123,6 +129,60 @@ function render(): void {
     bindStudents();
     bindReportTemplates();
     bindForceDelete();
+    bindAdminDirtyTracking();
+}
+
+function renderAdminPanel(tab: AdminTab): void {
+    const container = document.getElementById(`${tab}AdminPanel`);
+    if (!container) {
+        return;
+    }
+    if (tab === "settings") {
+        container.innerHTML = settingsPanel();
+        bindSettings();
+    } else if (tab === "classes") {
+        container.innerHTML = classesPanel();
+        bindClasses();
+    } else if (tab === "students") {
+        container.innerHTML = studentsPanel();
+        bindStudents();
+    } else if (tab === "reportTemplates") {
+        container.innerHTML = reportTemplatesPanel();
+        bindReportTemplates();
+    } else if (tab === "forceDelete") {
+        container.innerHTML = forceDeletePanel();
+        bindForceDelete();
+    } else {
+        container.innerHTML = academicYearPanel();
+        bindAcademicYears();
+    }
+    dirtyAdminTabs.delete(tab);
+    bindAdminPanelDirtyTracking(tab);
+}
+
+function bindAdminDirtyTracking(): void {
+    (
+        [
+            "settings",
+            "years",
+            "classes",
+            "students",
+            "reportTemplates",
+            "forceDelete",
+        ] as AdminTab[]
+    ).forEach(bindAdminPanelDirtyTracking);
+}
+
+function bindAdminPanelDirtyTracking(tab: AdminTab): void {
+    const container = document.getElementById(`${tab}AdminPanel`);
+    const markDirty = () => dirtyAdminTabs.add(tab);
+    container?.addEventListener("input", markDirty);
+    container?.addEventListener("change", markDirty);
+    container?.addEventListener("click", (event) => {
+        if ((event.target as HTMLElement).closest("button")) {
+            markDirty();
+        }
+    });
 }
 
 function adminTabButton(tab: AdminTab, label: string): string {
@@ -847,6 +907,12 @@ function bindReportTemplateEditor(): void {
             syncTemplateSectionFromEditor();
             renderReportTemplatePreview();
         });
+    document
+        .getElementById("templateSectionEditor")
+        ?.addEventListener("paste", handleTemplateEditorPaste);
+    document
+        .getElementById("templateSectionEditor")
+        ?.addEventListener("drop", handleTemplateEditorDrop);
     ["keyup", "mouseup"].forEach((eventName) => {
         document
             .getElementById("templateSectionEditor")
@@ -880,6 +946,27 @@ function bindReportTemplateEditor(): void {
         ?.addEventListener("click", handleTableDesignerClick);
 }
 
+function handleTemplateEditorPaste(event: ClipboardEvent): void {
+    event.preventDefault();
+    captureTemplateEditorSelection();
+    const html = event.clipboardData?.getData("text/html") ?? "";
+    if (html) {
+        insertHtmlAtEditorSelection(html);
+        return;
+    }
+    insertTextAtEditorSelection(
+        event.clipboardData?.getData("text/plain") ?? "",
+    );
+}
+
+function handleTemplateEditorDrop(event: DragEvent): void {
+    event.preventDefault();
+    captureTemplateEditorSelection();
+    insertTextAtEditorSelection(
+        event.dataTransfer?.getData("text/plain") ?? "",
+    );
+}
+
 function closeReportTemplateEditor(): void {
     document.getElementById("reportTemplateEditorModal")?.remove();
     editingTemplateCard = null;
@@ -900,6 +987,7 @@ function applyReportTemplateEditor(): void {
     if (configField) {
         configField.value = JSON.stringify(editingTemplateConfig);
     }
+    dirtyAdminTabs.add("reportTemplates");
     closeReportTemplateEditor();
     showNotice(
         "adminNotice",
@@ -1327,6 +1415,9 @@ function handleTableDesignerClick(event: Event): void {
         const nextIndex =
             target.dataset.moveColumn === "up" ? index - 1 : index + 1;
         if (nextIndex >= 0 && nextIndex < table.columns.length) {
+            if (!moveHeaderColumn(table, index, nextIndex)) {
+                return;
+            }
             [table.columns[index], table.columns[nextIndex]] = [
                 table.columns[nextIndex],
                 table.columns[index],
@@ -1335,6 +1426,44 @@ function handleTableDesignerClick(event: Event): void {
         }
     }
     renderReportTemplatePreview();
+}
+
+function moveHeaderColumn(
+    table: ReportTableDefinition,
+    fromIndex: number,
+    toIndex: number,
+): boolean {
+    const left = Math.min(fromIndex, toIndex);
+    const right = Math.max(fromIndex, toIndex);
+    const hasSplitMerge = table.headerCells.some((cell) => {
+        const coversLeft =
+            cell.columnIndex <= left &&
+            cell.columnIndex + cell.columnSpan > left;
+        const coversRight =
+            cell.columnIndex <= right &&
+            cell.columnIndex + cell.columnSpan > right;
+        return cell.columnSpan > 1 && coversLeft !== coversRight;
+    });
+    if (hasSplitMerge) {
+        window.alert(
+            "ไม่สามารถเลื่อนคอลัมน์ผ่านหัวตารางที่รวมเซลล์ไว้ได้ กรุณาแยกเซลล์บริเวณนั้นก่อน",
+        );
+        return false;
+    }
+    table.headerCells = table.headerCells.map((cell) => {
+        if (cell.columnSpan !== 1) {
+            return cell;
+        }
+        if (cell.columnIndex === fromIndex) {
+            return { ...cell, columnIndex: toIndex };
+        }
+        if (cell.columnIndex === toIndex) {
+            return { ...cell, columnIndex: fromIndex };
+        }
+        return cell;
+    });
+    repairReportTableHeaderLayout(table);
+    return true;
 }
 
 function syncSelectedTableFromDesigner(): void {
@@ -1712,6 +1841,16 @@ function createReportHeaderCellId(
 }
 
 function renderReportTemplatePreview(): void {
+    if (reportPreviewFrameId !== null) {
+        return;
+    }
+    reportPreviewFrameId = window.requestAnimationFrame(() => {
+        reportPreviewFrameId = null;
+        renderReportTemplatePreviewNow();
+    });
+}
+
+function renderReportTemplatePreviewNow(): void {
     const preview = document.getElementById("reportTemplatePreview");
     const config = editingTemplateConfig;
     if (!preview || !config) {
@@ -1721,11 +1860,24 @@ function renderReportTemplatePreview(): void {
     const maxWidth = landscape ? 960 : 700;
     const aspectRatio = landscape ? "297 / 210" : "210 / 297";
     const paddingPx = Math.round(config.pageMarginMm * 2.7);
+    const renderedTables = new Map<string, string>();
+    const headerHtml = renderPreviewRegion(
+        config.sections.headerHtml,
+        renderedTables,
+    );
+    const contentHtml = renderPreviewRegion(
+        config.sections.contentHtml,
+        renderedTables,
+    );
+    const footerHtml = renderPreviewRegion(
+        config.sections.footerHtml,
+        renderedTables,
+    );
     preview.innerHTML = `<div class="report-template-preview" style="--report-font-family:${escapeHtml(config.fontFamily)};position:relative;width:min(100%,${maxWidth}px);min-height:${landscape ? 610 : 920}px;aspect-ratio:${aspectRatio};margin:0 auto;padding:${paddingPx}px;background:#fff;color:#0f172a;box-shadow:0 12px 35px rgba(15,23,42,.18);font-family:${escapeHtml(config.fontFamily)};font-size:${config.fontSizePt}pt;line-height:1.45;display:flex;flex-direction:column;overflow:hidden">
         ${config.showDraftWatermark ? '<div style="position:absolute;inset:42% 0 auto;transform:rotate(-28deg);text-align:center;font-size:48px;font-weight:700;color:rgba(148,163,184,.18);pointer-events:none">ฉบับร่าง · PREVIEW</div>' : ""}
-        <header class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("HEADER")}${renderPreviewRegion(config.sections.headerHtml)}</header>
-        <main class="report-template-rich-content" style="position:relative;flex:1;border-left:1px dashed #e2e8f0;border-right:1px dashed #e2e8f0;padding:10px 8px">${previewSectionLabel("CONTENT")}${renderPreviewRegion(config.sections.contentHtml)}</main>
-        <footer class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("FOOTER")}${renderPreviewRegion(config.sections.footerHtml)}</footer>
+        <header class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("HEADER")}${headerHtml}</header>
+        <main class="report-template-rich-content" style="position:relative;flex:1;border-left:1px dashed #e2e8f0;border-right:1px dashed #e2e8f0;padding:10px 8px">${previewSectionLabel("CONTENT")}${contentHtml}</main>
+        <footer class="report-template-rich-content" style="position:relative;border:1px dashed #cbd5e1;padding:8px;min-height:55px">${previewSectionLabel("FOOTER")}${footerHtml}</footer>
     </div>`;
 }
 
@@ -1733,21 +1885,15 @@ function previewSectionLabel(label: string): string {
     return `<span style="position:absolute;top:2px;right:4px;color:#94a3b8;font:600 8px Arial,sans-serif;letter-spacing:.08em">${label}</span>`;
 }
 
-function renderPreviewRegion(sourceHtml: string): string {
+function renderPreviewRegion(
+    sourceHtml: string,
+    renderedTables: Map<string, string>,
+): string {
     const config = editingTemplateConfig;
     if (!config) {
         return "";
     }
     let html = sanitizeTemplateHtml(sourceHtml);
-    config.tables.forEach((table) => {
-        const tokenPattern = escapeRegExp(`{{table:${table.id}}}`);
-        const tableHtml = sampleReportTableHtml(table);
-        html = html.replace(
-            new RegExp(`<p[^>]*>\\s*${tokenPattern}\\s*</p>`, "gi"),
-            tableHtml,
-        );
-        html = html.replace(new RegExp(tokenPattern, "g"), tableHtml);
-    });
     const applicableTokens = globalTemplateTokens.filter(
         (item) =>
             !item.reportTypes ||
@@ -1779,7 +1925,27 @@ function renderPreviewRegion(sourceHtml: string): string {
     applicableTokens.forEach((item) => {
         html = html.replace(
             new RegExp(escapeRegExp(`{{${item.token}}}`), "g"),
-            escapeHtml(samples.get(item.token) ?? item.sample),
+            () =>
+                escapeTemplateTokenText(
+                    samples.get(item.token) ?? item.sample,
+                ),
+        );
+    });
+    config.tables.forEach((table) => {
+        if (!html.includes(`{{table:${table.id}}}`)) {
+            return;
+        }
+        const tokenPattern = escapeRegExp(`{{table:${table.id}}}`);
+        const tableHtml =
+            renderedTables.get(table.id) ?? sampleReportTableHtml(table);
+        renderedTables.set(table.id, tableHtml);
+        html = html.replace(
+            new RegExp(`<p[^>]*>\\s*${tokenPattern}\\s*</p>`, "gi"),
+            () => tableHtml,
+        );
+        html = html.replace(
+            new RegExp(tokenPattern, "g"),
+            () => tableHtml,
         );
     });
     return html.replace(
@@ -1882,115 +2048,14 @@ function sampleTotalValue(token: string): string {
     return "";
 }
 
-function sanitizeTemplateHtml(html: string): string {
-    const parser = new DOMParser();
-    const documentFragment = parser.parseFromString(
-        `<body>${html}</body>`,
-        "text/html",
-    );
-    const allowedTags = new Set([
-        "P",
-        "DIV",
-        "SPAN",
-        "BR",
-        "H1",
-        "H2",
-        "H3",
-        "H4",
-        "STRONG",
-        "B",
-        "EM",
-        "I",
-        "U",
-        "S",
-        "UL",
-        "OL",
-        "LI",
-        "BLOCKQUOTE",
-        "TABLE",
-        "THEAD",
-        "TBODY",
-        "TFOOT",
-        "TR",
-        "TH",
-        "TD",
-        "A",
-        "FONT",
-    ]);
-    const allowedStyles = new Set([
-        "text-align",
-        "font-weight",
-        "font-style",
-        "text-decoration",
-        "color",
-        "background-color",
-        "font-size",
-        "font-family",
-        "margin-left",
-    ]);
-    Array.from(documentFragment.body.querySelectorAll<HTMLElement>("*"))
-        .reverse()
-        .forEach((element) => {
-            if (!allowedTags.has(element.tagName)) {
-                element.replaceWith(...Array.from(element.childNodes));
-                return;
-            }
-            Array.from(element.attributes).forEach((attribute) => {
-                if (
-                    attribute.name !== "style" &&
-                    attribute.name !== "colspan" &&
-                    attribute.name !== "rowspan" &&
-                    attribute.name !== "href" &&
-                    attribute.name !== "size" &&
-                    attribute.name !== "color"
-                ) {
-                    element.removeAttribute(attribute.name);
-                }
-            });
-            if (element.hasAttribute("href")) {
-                const href = element.getAttribute("href") ?? "";
-                if (!/^(https?:|mailto:)/i.test(href)) {
-                    element.removeAttribute("href");
-                } else {
-                    element.setAttribute("rel", "noopener noreferrer");
-                    element.setAttribute("target", "_blank");
-                }
-            }
-            if (
-                element.hasAttribute("size") &&
-                !/^[1-7]$/.test(element.getAttribute("size") ?? "")
-            ) {
-                element.removeAttribute("size");
-            }
-            if (
-                element.hasAttribute("color") &&
-                !/^(#[0-9a-f]{3,8}|[a-z]+)$/i.test(
-                    element.getAttribute("color") ?? "",
-                )
-            ) {
-                element.removeAttribute("color");
-            }
-            const safeStyles: string[] = [];
-            Array.from(element.style).forEach((property) => {
-                if (!allowedStyles.has(property)) {
-                    return;
-                }
-                const value = element.style.getPropertyValue(property);
-                if (!/url\s*\(|expression\s*\(|javascript\s*:/i.test(value)) {
-                    safeStyles.push(`${property}:${value}`);
-                }
-            });
-            if (safeStyles.length > 0) {
-                element.setAttribute("style", safeStyles.join(";"));
-            } else {
-                element.removeAttribute("style");
-            }
-        });
-    return documentFragment.body.innerHTML;
-}
-
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function escapeTemplateTokenText(value: unknown): string {
+    return escapeHtml(value)
+        .replace(/\{/g, "&#123;")
+        .replace(/\}/g, "&#125;");
 }
 
 function forceDeletePanel(): string {
@@ -2174,8 +2239,19 @@ function bindStudents(): void {
     document
         .getElementById("studentClassSelect")
         ?.addEventListener("change", (event) => {
-            selectedStudentClassId = (event.target as HTMLSelectElement).value;
-            render();
+            const select = event.target as HTMLSelectElement;
+            const previousClassId = selectedStudentClassId;
+            if (
+                hasStudentDraftChanges(previousClassId) &&
+                !window.confirm(
+                    "มีรายชื่อนักเรียนหรือ CSV ที่ยังไม่ได้บันทึก ต้องการละทิ้งแล้วเปลี่ยนห้องใช่หรือไม่",
+                )
+            ) {
+                select.value = previousClassId;
+                return;
+            }
+            selectedStudentClassId = select.value;
+            renderAdminPanel("students");
         });
     document
         .getElementById("sampleStudentCsvButton")
@@ -2217,6 +2293,25 @@ function bindStudents(): void {
 }
 
 function bindReportTemplates(): void {
+    document
+        .getElementById("templateSourceYear")
+        ?.addEventListener("change", (event) => {
+            sourceTemplateRequestId += 1;
+            const loadButton = document.getElementById(
+                "loadSourceTemplatesButton",
+            ) as HTMLButtonElement | null;
+            if (loadButton) {
+                setBusy(loadButton, false);
+            }
+            selectedTemplateSourceYearKey = (
+                event.target as HTMLSelectElement
+            ).value;
+            sourceReportTemplates = [];
+            const list = document.getElementById("sourceTemplateList");
+            if (list) {
+                list.innerHTML = sourceTemplateListHtml();
+            }
+        });
     document
         .querySelectorAll<HTMLButtonElement>("[data-add-report-template]")
         .forEach((button) => {
@@ -2315,8 +2410,9 @@ async function loadSourceReportTemplates(
     const sourceSelect = document.getElementById(
         "templateSourceYear",
     ) as HTMLSelectElement;
-    selectedTemplateSourceYearKey = sourceSelect.value;
-    if (!selectedTemplateSourceYearKey) {
+    const requestedSourceKey = sourceSelect.value;
+    selectedTemplateSourceYearKey = requestedSourceKey;
+    if (!requestedSourceKey) {
         showNotice(
             "adminNotice",
             "กรุณาเลือกปีการศึกษาต้นทาง",
@@ -2324,27 +2420,47 @@ async function loadSourceReportTemplates(
         );
         return;
     }
+    const requestId = ++sourceTemplateRequestId;
     setBusy(button, true, "กำลังโหลด...");
     try {
-        sourceReportTemplates = await googleScriptRun(
+        const templates = await googleScriptRun(
             "getReportTemplatesForAcademicYear",
             token,
-            selectedTemplateSourceYearKey,
+            requestedSourceKey,
         );
+        if (
+            requestId !== sourceTemplateRequestId ||
+            sourceSelect.value !== requestedSourceKey
+        ) {
+            return;
+        }
+        sourceReportTemplates = templates;
         const list = document.getElementById("sourceTemplateList");
         if (list) {
             list.innerHTML = sourceTemplateListHtml();
         }
     } catch (error) {
-        showNotice("adminNotice", messageText(error), "error");
+        if (requestId === sourceTemplateRequestId) {
+            showNotice("adminNotice", messageText(error), "error");
+        }
     } finally {
-        setBusy(button, false);
+        if (requestId === sourceTemplateRequestId) {
+            setBusy(button, false);
+        }
     }
 }
 
 async function copySelectedReportTemplates(
     button: HTMLButtonElement,
 ): Promise<void> {
+    if (hasReportTemplateDraftChanges()) {
+        showNotice(
+            "adminNotice",
+            "มีเทมเพลตที่ยังไม่ได้บันทึก กรุณาบันทึกเทมเพลตก่อนคัดลอกจากปีการศึกษาอื่น",
+            "error",
+        );
+        return;
+    }
     const templateIds = Array.from(
         document.querySelectorAll<HTMLInputElement>(
             "[data-source-template-id]:checked",
@@ -2365,12 +2481,13 @@ async function copySelectedReportTemplates(
             token,
             {
                 sourceAcademicYearKey: selectedTemplateSourceYearKey,
+                targetAcademicYearKey: state.academicYearKey,
                 templateIds,
             },
         );
         sourceReportTemplates = [];
         selectedTemplateSourceYearKey = "";
-        render();
+        renderAdminPanel("reportTemplates");
         showNotice(
             "adminNotice",
             `คัดลอกเทมเพลต ${templateIds.length} รายการมายังปีการศึกษาปัจจุบันแล้ว`,
@@ -2472,8 +2589,11 @@ async function forceDeleteSelectedStudents(
         );
         return;
     }
+    const studentDraftWarning = hasStudentDraftChanges()
+        ? "\n\nคำเตือน: รายชื่อนักเรียนหรือ CSV ที่ยังไม่ได้บันทึกจะถูกละทิ้ง"
+        : "";
     const confirmed = window.confirm(
-        `ยืนยันบังคับลบนักเรียน ${studentIds.length} คน พร้อมประวัติการเช็คชื่อทั้งหมดใช่หรือไม่`,
+        `ยืนยันบังคับลบนักเรียน ${studentIds.length} คน พร้อมประวัติการเช็คชื่อทั้งหมดใช่หรือไม่${studentDraftWarning}`,
     );
     if (!confirmed) {
         return;
@@ -2481,6 +2601,7 @@ async function forceDeleteSelectedStudents(
     setBusy(button, true, "กำลังลบ...");
     try {
         const result = await googleScriptRun("forceDeleteStudents", token, {
+            academicYearKey: state.academicYearKey,
             studentIds,
             confirmText,
         });
@@ -2488,7 +2609,8 @@ async function forceDeleteSelectedStudents(
         state.students = state.students.filter(
             (student) => !deletedIds.has(student.id),
         );
-        render();
+        renderAdminPanel("students");
+        renderAdminPanel("forceDelete");
         showNotice(
             "adminNotice",
             `บังคับลบนักเรียน ${result.deletedStudents} คน และลบประวัติเช็คชื่อ ${result.deletedAttendanceRecords} รายการเรียบร้อย`,
@@ -2604,14 +2726,27 @@ async function saveSettings(
     button: HTMLButtonElement,
 ): Promise<void> {
     const data = new FormData(form);
+    const appPassword = String(data.get("appPassword") ?? "");
+    const adminPassword = String(data.get("adminPassword") ?? "");
     setBusy(button, true, "กำลังบันทึก...");
     try {
         state.config = await googleScriptRun("saveSystemSettings", token, {
             schoolName: String(data.get("schoolName") ?? ""),
-            appPassword: String(data.get("appPassword") ?? "") || undefined,
-            adminPassword: String(data.get("adminPassword") ?? "") || undefined,
+            appPassword: appPassword || undefined,
+            adminPassword: adminPassword || undefined,
         });
-        render();
+        if (appPassword) {
+            localStorage.removeItem(APP_TOKEN_KEY);
+        }
+        if (adminPassword) {
+            localStorage.removeItem(ADMIN_TOKEN_KEY);
+            showLoginRequired(
+                "admin",
+                "เปลี่ยนรหัสผ่าน Admin เรียบร้อย กรุณาเข้าสู่ระบบใหม่",
+            );
+            return;
+        }
+        renderAdminPanel("settings");
         showNotice("adminNotice", "บันทึกตั้งค่าระบบเรียบร้อย", "ok");
     } catch (error) {
         showNotice("adminNotice", messageText(error), "error");
@@ -2621,12 +2756,24 @@ async function saveSettings(
 }
 
 async function saveAcademicYears(button: HTMLButtonElement): Promise<void> {
+    const dirtyElsewhere = [...dirtyAdminTabs].filter(
+        (tab) => tab !== "years" && tab !== "forceDelete",
+    );
+    if (
+        dirtyElsewhere.length > 0 &&
+        !window.confirm(
+            "มีข้อมูลในแท็บอื่นที่ยังไม่ได้บันทึก การเปลี่ยนปีการศึกษาจะโหลดข้อมูลชุดใหม่ ต้องการดำเนินการต่อใช่หรือไม่",
+        )
+    ) {
+        return;
+    }
     setBusy(button, true, "กำลังบันทึก...");
     try {
         const { academicYears, currentYearKey } = readAcademicYearRows();
         state = await googleScriptRun("saveAcademicYears", token, {
             academicYears,
             currentYearKey,
+            expectedAcademicYearsRevision: state.academicYearsRevision,
         });
         render();
         showNotice("adminNotice", "บันทึกปีการศึกษาเรียบร้อย", "ok");
@@ -2638,6 +2785,14 @@ async function saveAcademicYears(button: HTMLButtonElement): Promise<void> {
 }
 
 async function saveClasses(button: HTMLButtonElement): Promise<void> {
+    if (
+        hasStudentDraftChanges() &&
+        !window.confirm(
+            "มีรายชื่อนักเรียนหรือ CSV ที่ยังไม่ได้บันทึก การบันทึกห้องเรียนจะรีเฟรชรายการห้อง ต้องการละทิ้งข้อมูลดังกล่าวใช่หรือไม่",
+        )
+    ) {
+        return;
+    }
     setBusy(button, true, "กำลังบันทึก...");
     try {
         const rows = activeTableRows("#classRows tr").map((row) => ({
@@ -2645,8 +2800,15 @@ async function saveClasses(button: HTMLButtonElement): Promise<void> {
             grade: fieldValue(row, "grade"),
             room: fieldValue(row, "room"),
         }));
-        state.classes = await googleScriptRun("saveClasses", token, rows);
-        render();
+        state.classes = await googleScriptRun(
+            "saveClasses",
+            token,
+            rows,
+            state.academicYearKey,
+        );
+        renderAdminPanel("classes");
+        renderAdminPanel("students");
+        renderAdminPanel("forceDelete");
         showNotice("adminNotice", "บันทึกห้องเรียนเรียบร้อย", "ok");
     } catch (error) {
         showNotice("adminNotice", messageText(error), "error");
@@ -2666,8 +2828,10 @@ async function saveStudents(button: HTMLButtonElement): Promise<void> {
             token,
             selectedClassId,
             selectedClassRows,
+            state.academicYearKey,
         );
-        render();
+        renderAdminPanel("students");
+        renderAdminPanel("forceDelete");
         showNotice(
             "adminNotice",
             "บันทึกรายชื่อนักเรียนห้องนี้เรียบร้อย",
@@ -2687,8 +2851,9 @@ async function saveReportTemplates(button: HTMLButtonElement): Promise<void> {
             "saveReportTemplates",
             token,
             readReportTemplateCards(),
+            state.academicYearKey,
         );
-        render();
+        renderAdminPanel("reportTemplates");
         showNotice(
             "adminNotice",
             "บันทึกเทมเพลตของปีการศึกษาปัจจุบันเรียบร้อย",
@@ -2720,6 +2885,29 @@ function readReportTemplateCards(): ReportTemplate[] {
             updatedAt: "",
         };
     });
+}
+
+function hasReportTemplateDraftChanges(): boolean {
+    if (!document.getElementById("reportTemplateRows")) {
+        return false;
+    }
+    try {
+        const comparableTemplates = (rows: ReportTemplate[]) =>
+            rows.map((template) => [
+                template.id,
+                template.name,
+                template.reportType,
+                template.isDefault,
+                template.enabled,
+                template.config,
+            ]);
+        return (
+            JSON.stringify(comparableTemplates(readReportTemplateCards())) !==
+            JSON.stringify(comparableTemplates(state.reportTemplates))
+        );
+    } catch {
+        return true;
+    }
 }
 
 function parseReportTemplateConfig(
@@ -2839,6 +3027,40 @@ function readStudentRowsFromTable(
         .filter((student) => !isEmptyStudentRow(student));
 }
 
+function hasStudentDraftChanges(
+    classId = getSelectedStudentClassId(),
+): boolean {
+    const table = document.getElementById("studentRows");
+    if (!table) {
+        return false;
+    }
+    const savedRows = state.students.filter(
+        (student) => student.classId === classId,
+    );
+    const draftRows = readStudentRowsFromTable(classId);
+    const csvDraft =
+        (
+            document.getElementById(
+                "studentCsvInput",
+            ) as HTMLTextAreaElement | null
+        )?.value.trim() ?? "";
+    const comparableRows = (rows: Student[]) =>
+        rows.map((student) => [
+            student.id,
+            student.classId,
+            student.number,
+            student.studentCode,
+            student.fullName,
+            student.gender,
+            student.status,
+        ]);
+    return (
+        csvDraft.length > 0 ||
+        JSON.stringify(comparableRows(draftRows)) !==
+            JSON.stringify(comparableRows(savedRows))
+    );
+}
+
 function validateStudentRowsBeforeSave(rows: Student[]): void {
     rows.forEach((student) => {
         if (student.gender === "unknown") {
@@ -2927,7 +3149,9 @@ function parseStudentsCsv(csvText: string, classId: string): Student[] {
 function csvHeaderIndexes(
     headerRow: string[],
 ): Record<(typeof studentCsvHeaders)[number], number> {
-    const normalized = headerRow.map((cell) => cell.trim());
+    const normalized = headerRow.map((cell, index) =>
+        (index === 0 ? cell.replace(/^\uFEFF/, "") : cell).trim(),
+    );
     const indexes = Object.fromEntries(
         studentCsvHeaders.map((header) => [header, normalized.indexOf(header)]),
     ) as Record<(typeof studentCsvHeaders)[number], number>;
@@ -2946,7 +3170,14 @@ function validateStudentCsvImport(
 ): void {
     const existingClassNumbers = new Set<string>();
     const existingCodes = new Set<string>();
-    currentRows
+    const targetClassId =
+        importRows[0]?.classId ?? currentRows[0]?.classId ?? "";
+    [
+        ...state.students.filter(
+            (student) => student.classId !== targetClassId,
+        ),
+        ...currentRows,
+    ]
         .filter((student) => !isEmptyStudentRow(student))
         .forEach((student) => {
             existingClassNumbers.add(
@@ -3005,7 +3236,7 @@ function isEmptyStudentRow(student: Student): boolean {
 }
 
 function classNumberKey(classId: string, number: string): string {
-    return `${classId}:${number}`;
+    return JSON.stringify([classId, number]);
 }
 
 function classLabel(classRoom: ClassRoom): string {

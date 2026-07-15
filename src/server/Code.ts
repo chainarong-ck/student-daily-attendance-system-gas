@@ -104,10 +104,16 @@ export function loginAdmin(password: string): LoginResult {
 
 export function getIndexBootstrap(token: string): IndexBootstrap {
     AuthService.requireApp(token);
-    const database = AcademicYearService.ensureCurrentSheet();
+    const context = AcademicYearService.currentContext();
+    const { academicYear, academicYearKey, config, database } = context;
     database.ensureSchema();
     return {
-        system: MainConfig.getPublicState(),
+        academicYearKey,
+        system: {
+            initialized: true,
+            schoolName: config.schoolName,
+            currentYear: { y: academicYear.y, t: academicYear.t },
+        },
         classes: ClassService.listClasses(database),
         reportTemplates: ReportTemplateService.listEnabled(database),
     };
@@ -115,10 +121,17 @@ export function getIndexBootstrap(token: string): IndexBootstrap {
 
 export function getAdminBootstrap(adminToken: string): AdminBootstrap {
     AuthService.requireAdmin(adminToken);
-    const database = AcademicYearService.ensureCurrentSheet();
+    return buildAdminBootstrap();
+}
+
+function buildAdminBootstrap(): AdminBootstrap {
+    const { academicYearKey, academicYearsRevision, config, database } =
+        AcademicYearService.currentContext();
     database.ensureSchema();
     return {
-        config: MainConfig.getConfig(),
+        academicYearKey,
+        academicYearsRevision,
+        config,
         classes: ClassService.listClasses(database),
         students: StudentService.listStudents(undefined, database),
         reportTemplates: ReportTemplateService.list(database),
@@ -150,27 +163,37 @@ export function saveAcademicYears(
     AuthService.requireAdmin(adminToken);
     return ServerUtils.withScriptLock(() => {
         AcademicYearService.saveAcademicYears(payload);
-        return getAdminBootstrap(adminToken);
+        return buildAdminBootstrap();
     });
 }
 
 export function saveClasses(
     adminToken: string,
     rows: ClassRoom[],
+    academicYearKey: string,
 ): ClassRoom[] {
     AuthService.requireAdmin(adminToken);
-    return ServerUtils.withScriptLock(() => ClassService.saveClasses(rows));
+    return ServerUtils.withScriptLock(() => {
+        const { database } = AcademicYearService.requireCurrentContext(
+            academicYearKey,
+        );
+        return ClassService.saveClasses(rows, database);
+    });
 }
 
 export function saveStudents(
     adminToken: string,
     classId: string,
     rows: Student[],
+    academicYearKey: string,
 ): Student[] {
     AuthService.requireAdmin(adminToken);
-    return ServerUtils.withScriptLock(() =>
-        StudentService.saveStudentsForClass(classId, rows),
-    );
+    return ServerUtils.withScriptLock(() => {
+        const { database } = AcademicYearService.requireCurrentContext(
+            academicYearKey,
+        );
+        return StudentService.saveStudentsForClass(classId, rows, database);
+    });
 }
 
 export function forceDeleteStudents(
@@ -178,14 +201,23 @@ export function forceDeleteStudents(
     payload: ForceDeleteStudentsPayload,
 ): ForceDeleteStudentsResult {
     AuthService.requireAdmin(adminToken);
-    return ServerUtils.withScriptLock(() =>
-        StudentService.forceDeleteStudents(payload),
-    );
+    return ServerUtils.withScriptLock(() => {
+        const { database } = AcademicYearService.requireCurrentContext(
+            payload.academicYearKey,
+        );
+        return StudentService.forceDeleteStudents(payload, database);
+    });
 }
 
-export function getReportTemplates(token: string): ReportTemplate[] {
+export function getReportTemplates(
+    token: string,
+    academicYearKey: string,
+): ReportTemplate[] {
     AuthService.requireApp(token);
-    return ReportTemplateService.listEnabled();
+    const { database } = AcademicYearService.requireCurrentContext(
+        academicYearKey,
+    );
+    return ReportTemplateService.listEnabled(database);
 }
 
 export function getReportTemplatesForAcademicYear(
@@ -199,9 +231,15 @@ export function getReportTemplatesForAcademicYear(
 export function saveReportTemplates(
     adminToken: string,
     rows: ReportTemplate[],
+    academicYearKey: string,
 ): ReportTemplate[] {
     AuthService.requireAdmin(adminToken);
-    return ServerUtils.withScriptLock(() => ReportTemplateService.save(rows));
+    return ServerUtils.withScriptLock(() => {
+        const { database } = AcademicYearService.requireCurrentContext(
+            academicYearKey,
+        );
+        return ReportTemplateService.save(rows, database);
+    });
 }
 
 export function copyReportTemplates(
@@ -218,9 +256,14 @@ export function getAttendanceClassSession(
     token: string,
     classId: string,
     date: string,
+    academicYearKey: string,
 ): AttendanceClassSession {
     AuthService.requireApp(token);
-    return AttendanceService.getClassSession(classId, date);
+    return AttendanceService.getClassSession(
+        classId,
+        date,
+        AcademicYearService.requireCurrentContext(academicYearKey),
+    );
 }
 
 export function saveAttendance(
@@ -242,15 +285,23 @@ export function updateAttendance(
 export function getAttendanceOverview(
     token: string,
     date: string,
+    academicYearKey: string,
 ): AttendanceOverview {
     AuthService.requireApp(token);
-    return AttendanceService.getOverview(date);
+    return AttendanceService.getOverview(
+        date,
+        AcademicYearService.requireCurrentContext(academicYearKey),
+    );
 }
 
 export function getAttendanceStats(
     token: string,
     filters: AttendanceStatsFilters,
+    academicYearKey: string,
 ): AttendanceStats {
     AuthService.requireApp(token);
-    return AttendanceService.getStats(filters);
+    return AttendanceService.getStats(
+        filters,
+        AcademicYearService.requireCurrentContext(academicYearKey),
+    );
 }

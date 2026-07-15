@@ -11,6 +11,12 @@ import { ServerConstant } from "./ServerConstant";
 import { ServerUtils } from "./ServerUtils";
 import { SheetDatabase } from "./SheetDatabase";
 
+const MAX_STUDENT_ID_LENGTH = 100;
+const MAX_CLASS_ID_LENGTH = 100;
+const MAX_STUDENT_NUMBER_LENGTH = 20;
+const MAX_STUDENT_CODE_LENGTH = 100;
+const MAX_STUDENT_NAME_LENGTH = 200;
+
 export class StudentService {
     static listStudents(
         classId?: string,
@@ -37,16 +43,20 @@ export class StudentService {
                 (student) =>
                     !filterClassId || student.classId === filterClassId,
             )
-            .sort((a, b) => Number(a.number) - Number(b.number));
+            .sort((a, b) => this.compareStudentNumbers(a, b));
     }
 
-    static saveStudentsForClass(classId: string, rows: Student[]): Student[] {
+    static saveStudentsForClass(
+        classId: string,
+        rows: Student[],
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
+    ): Student[] {
+        ServerUtils.assert(Array.isArray(rows), "ข้อมูลนักเรียนไม่ถูกต้อง");
         const targetClassId = ServerUtils.normalizeText(classId);
-        const database = AcademicYearService.ensureCurrentSheet();
-        const classExists = ClassService.listClasses(database).some(
-            (classRoom) => classRoom.id === targetClassId,
+        const classIds = new Set(
+            ClassService.listClasses(database).map((classRoom) => classRoom.id),
         );
-        ServerUtils.assert(classExists, "ไม่พบห้องเรียน");
+        ServerUtils.assert(classIds.has(targetClassId), "ไม่พบห้องเรียน");
         const currentStudents = this.listStudents(undefined, database);
         const merged = [
             ...currentStudents.filter(
@@ -57,32 +67,39 @@ export class StudentService {
                 classId: targetClassId,
             })),
         ];
-        return this.saveStudents(merged, database);
+        return this.saveStudents(
+            merged,
+            database,
+            classIds,
+            currentStudents,
+        );
     }
 
     private static saveStudents(
         rows: Student[],
         database: SheetDatabase,
+        classIds: Set<string>,
+        existingStudents: Student[],
     ): Student[] {
-        const classIds = new Set(
-            ClassService.listClasses(database).map((row) => row.id),
-        );
-        const existingStudents = database.readObjects("Students");
         const existingClassByStudent = new Map(
-            existingStudents.map((row) => [row.id, row.classId]),
-        );
-        const attendanceStudentIds = new Set(
-            database
-                .readObjects("Attendance")
-                .map((row) => row.studentId)
-                .filter((studentId) => studentId.length > 0),
+            existingStudents.map((student) => [student.id, student.classId]),
         );
         const normalized = rows
             .map((row) => {
-                const status: StudentStatus =
-                    row.status === "leave" ? "leave" : "active";
-                const gender: StudentGender =
-                    ServerUtils.normalizeStudentGender(row.gender);
+                const statusText = ServerUtils.normalizeText(row.status);
+                ServerUtils.assert(
+                    ServerConstant.STUDENT_STATUSES.includes(
+                        statusText as StudentStatus,
+                    ),
+                    "สถานะนักเรียนไม่ถูกต้อง",
+                );
+                const genderText = ServerUtils.normalizeText(row.gender);
+                ServerUtils.assert(
+                    ServerConstant.STUDENT_GENDERS.includes(
+                        genderText as StudentGender,
+                    ),
+                    "เพศนักเรียนไม่ถูกต้อง",
+                );
                 return {
                     id:
                         ServerUtils.normalizeText(row.id) ||
@@ -91,8 +108,8 @@ export class StudentService {
                     number: ServerUtils.normalizeText(row.number),
                     studentCode: ServerUtils.normalizeText(row.studentCode),
                     fullName: ServerUtils.normalizeText(row.fullName),
-                    status,
-                    gender,
+                    status: statusText as StudentStatus,
+                    gender: genderText as StudentGender,
                 };
             })
             .filter(
@@ -110,26 +127,38 @@ export class StudentService {
         const numbers = new Set<string>();
         const codes = new Set<string>();
         for (const row of normalized) {
+            ServerUtils.assert(
+                row.id.length <= MAX_STUDENT_ID_LENGTH,
+                `รหัสภายในนักเรียนห้ามเกิน ${MAX_STUDENT_ID_LENGTH} ตัวอักษร`,
+            );
             ServerUtils.assert(!ids.has(row.id), "รหัสนักเรียนซ้ำ");
             ids.add(row.id);
+            ServerUtils.assert(
+                row.classId.length <= MAX_CLASS_ID_LENGTH,
+                `รหัสห้องเรียนห้ามเกิน ${MAX_CLASS_ID_LENGTH} ตัวอักษร`,
+            );
             ServerUtils.assert(
                 classIds.has(row.classId),
                 "ห้องเรียนของนักเรียนไม่ถูกต้อง",
             );
             ServerUtils.assert(row.number.length > 0, "ต้องระบุเลขที่นักเรียน");
             ServerUtils.assert(
+                row.number.length <= MAX_STUDENT_NUMBER_LENGTH,
+                `เลขที่นักเรียนห้ามเกิน ${MAX_STUDENT_NUMBER_LENGTH} ตัวอักษร`,
+            );
+            ServerUtils.assert(
+                row.studentCode.length <= MAX_STUDENT_CODE_LENGTH,
+                `รหัสนักเรียนห้ามเกิน ${MAX_STUDENT_CODE_LENGTH} ตัวอักษร`,
+            );
+            ServerUtils.assert(
                 row.fullName.length > 0,
                 "ต้องระบุชื่อ-สกุลนักเรียน",
             );
             ServerUtils.assert(
-                ServerConstant.STUDENT_STATUSES.includes(row.status),
-                "สถานะนักเรียนไม่ถูกต้อง",
+                row.fullName.length <= MAX_STUDENT_NAME_LENGTH,
+                `ชื่อ-สกุลนักเรียนห้ามเกิน ${MAX_STUDENT_NAME_LENGTH} ตัวอักษร`,
             );
-            ServerUtils.assert(
-                ServerConstant.STUDENT_GENDERS.includes(row.gender),
-                "เพศนักเรียนไม่ถูกต้อง",
-            );
-            const numberKey = `${row.classId}:${row.number}`;
+            const numberKey = JSON.stringify([row.classId, row.number]);
             ServerUtils.assert(
                 !numbers.has(numberKey),
                 "เลขที่นักเรียนในห้องเดียวกันห้ามซ้ำ",
@@ -142,6 +171,25 @@ export class StudentService {
                 );
                 codes.add(row.studentCode);
             }
+        }
+        const newStudentIds = new Set(normalized.map((row) => row.id));
+        const newClassByStudent = new Map(
+            normalized.map((row) => [row.id, row.classId]),
+        );
+        const needsAttendanceCheck = existingStudents.some(
+            (student) =>
+                !newStudentIds.has(student.id) ||
+                newClassByStudent.get(student.id) !== student.classId,
+        );
+        const attendanceStudentIds = needsAttendanceCheck
+            ? new Set(
+                  database
+                      .readObjects("Attendance")
+                      .map((row) => row.studentId)
+                      .filter((studentId) => studentId.length > 0),
+              )
+            : new Set<string>();
+        normalized.forEach((row) => {
             const existingClassId = existingClassByStudent.get(row.id);
             ServerUtils.assert(
                 !(
@@ -151,8 +199,7 @@ export class StudentService {
                 ),
                 "ไม่สามารถย้ายห้องนักเรียนที่มีประวัติเช็คชื่อแล้วได้",
             );
-        }
-        const newStudentIds = new Set(normalized.map((row) => row.id));
+        });
         const deletedAttendanceStudentId = [...attendanceStudentIds].find(
             (studentId) => !newStudentIds.has(studentId),
         );
@@ -161,11 +208,12 @@ export class StudentService {
             "ไม่สามารถลบนักเรียนที่มีประวัติเช็คชื่อแล้วได้ กรุณาเปลี่ยนสถานะเป็นออก/พักเรียนแทน",
         );
         database.writeObjects("Students", normalized);
-        return normalized.sort((a, b) => Number(a.number) - Number(b.number));
+        return normalized.sort((a, b) => this.compareStudentNumbers(a, b));
     }
 
     static forceDeleteStudents(
         payload: ForceDeleteStudentsPayload,
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
     ): ForceDeleteStudentsResult {
         const studentIds = [
             ...new Set(
@@ -187,7 +235,6 @@ export class StudentService {
             "บังคับลบนักเรียนได้ครั้งละไม่เกิน 50 คน",
         );
 
-        const database = AcademicYearService.ensureCurrentSheet();
         const deleteIds = new Set(studentIds);
         const students = database.readObjects("Students");
         const existingStudentIds = new Set(
@@ -207,19 +254,44 @@ export class StudentService {
         const deletedStudents = students.length - remainingStudents.length;
         ServerUtils.assert(deletedStudents > 0, "ไม่พบนักเรียนที่ต้องการลบ");
 
-        const attendance = database.readObjects("Attendance");
-        const remainingAttendance = attendance.filter(
-            (record) => !deleteIds.has(record.studentId),
-        );
-        const deletedAttendanceRecords =
-            attendance.length - remainingAttendance.length;
+        const deletedAttendanceRows = database
+            .readObjectsWithRowNumbers("Attendance")
+            .filter((row) => deleteIds.has(row.value.studentId));
+        const deletedAttendanceRecords = deletedAttendanceRows.length;
 
-        database.writeObjects("Students", remainingStudents);
-        database.writeObjects("Attendance", remainingAttendance);
+        try {
+            database.clearObjectRows(
+                "Attendance",
+                deletedAttendanceRows.map((row) => row.rowNumber),
+            );
+            database.writeObjects("Students", remainingStudents);
+            // Surface queued Sheets errors here so the targeted rollback below
+            // still has the original rows and their physical positions.
+            SpreadsheetApp.flush();
+        } catch (error) {
+            try {
+                database.writeObjects("Students", students);
+                database.writeObjectRows("Attendance", deletedAttendanceRows);
+                SpreadsheetApp.flush();
+            } catch (rollbackError) {
+                console.error(
+                    "ไม่สามารถย้อนคืนข้อมูลหลังบังคับลบนักเรียนล้มเหลว",
+                    rollbackError,
+                );
+            }
+            throw error;
+        }
 
         return {
             deletedStudents,
             deletedAttendanceRecords,
         };
+    }
+
+    private static compareStudentNumbers(a: Student, b: Student): number {
+        return a.number.localeCompare(b.number, "th", {
+            numeric: true,
+            sensitivity: "base",
+        });
     }
 }

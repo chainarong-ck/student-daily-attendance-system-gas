@@ -136,6 +136,8 @@ export type AttendanceStudentRow = {
 };
 
 export type AttendanceClassSession = {
+    academicYearKey: string;
+    revision: string;
     date: string;
     classRoom: ClassRoom;
     checked: boolean;
@@ -208,12 +210,15 @@ export type LoginResult = {
 };
 
 export type IndexBootstrap = {
+    academicYearKey: string;
     system: PublicSystemState;
     classes: ClassRoom[];
     reportTemplates: ReportTemplate[];
 };
 
 export type AdminBootstrap = {
+    academicYearKey: string;
+    academicYearsRevision: string;
     config: SystemConfig;
     classes: ClassRoom[];
     students: Student[];
@@ -222,6 +227,7 @@ export type AdminBootstrap = {
 
 export type CopyReportTemplatesPayload = {
     sourceAcademicYearKey: string;
+    targetAcademicYearKey: string;
     templateIds: string[];
 };
 
@@ -234,9 +240,11 @@ export type SaveSystemSettingsPayload = {
 export type SaveAcademicYearsPayload = {
     academicYears: AcademicYear[];
     currentYearKey: string;
+    expectedAcademicYearsRevision: string;
 };
 
 export type ForceDeleteStudentsPayload = {
+    academicYearKey: string;
     studentIds: string[];
     confirmText: string;
 };
@@ -247,6 +255,8 @@ export type ForceDeleteStudentsResult = {
 };
 
 export type SaveAttendancePayload = {
+    academicYearKey: string;
+    expectedSessionRevision: string;
     date: string;
     classId: string;
     records: Array<{

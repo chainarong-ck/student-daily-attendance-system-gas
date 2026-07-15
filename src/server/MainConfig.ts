@@ -77,6 +77,8 @@ export class MainConfig {
                 [ServerConstant.PROPERTY_KEYS.appPasswordHash]: appPasswordHash,
                 [ServerConstant.PROPERTY_KEYS.adminPasswordHash]:
                     adminPasswordHash,
+                [ServerConstant.PROPERTY_KEYS.authSigningSecret]:
+                    this.createAuthSigningSecret(),
                 [ServerConstant.PROPERTY_KEYS.academicYears]:
                     ServerUtils.stringifyJson([year]),
                 [ServerConstant.PROPERTY_KEYS.currentYear]:
@@ -129,6 +131,32 @@ export class MainConfig {
             app: values[ServerConstant.PROPERTY_KEYS.appPasswordHash] ?? "",
             admin: values[ServerConstant.PROPERTY_KEYS.adminPasswordHash] ?? "",
         };
+    }
+
+    static getAuthSigningSecret(): string {
+        const properties = this.properties();
+        const key = ServerConstant.PROPERTY_KEYS.authSigningSecret;
+        const existing = properties.getProperty(key);
+        if (existing) {
+            return existing;
+        }
+
+        // Existing installations did not have an independent token secret.
+        // Create it once under a script lock; existing tokens intentionally
+        // require one re-login after this migration.
+        const lock = LockService.getScriptLock();
+        lock.waitLock(10_000);
+        try {
+            const migrated = properties.getProperty(key);
+            if (migrated) {
+                return migrated;
+            }
+            const secret = this.createAuthSigningSecret();
+            properties.setProperty(key, secret);
+            return secret;
+        } finally {
+            lock.releaseLock();
+        }
     }
 
     static setAcademicYearsAndCurrent(
@@ -219,6 +247,10 @@ export class MainConfig {
             hash.length <= ServerConstant.LIMITS.passwordHashLength,
             `${label}ยาวเกิน 100 ตัวอักษร`,
         );
+    }
+
+    private static createAuthSigningSecret(): string {
+        return `${Utilities.getUuid()}${Utilities.getUuid()}`.replace(/-/g, "");
     }
 
     private static properties(): GoogleAppsScript.Properties.Properties {

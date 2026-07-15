@@ -8,6 +8,7 @@ import type {
     ReportTemplate,
     StudentGender,
 } from "../../shared/types";
+import { sanitizeReportHtml } from "./report-html-sanitizer";
 
 type ReportCellValue = string | number;
 type ReportDataRow = Record<string, ReportCellValue>;
@@ -49,13 +50,37 @@ export function buildReportHtmlDocument(
     metadata: ReportExportMetadata,
 ): string {
     const config = template.config;
+    const orientation =
+        config.orientation === "landscape" ? "landscape" : "portrait";
+    const pageMarginMm = numberInRange(config.pageMarginMm, 5, 30, 12);
+    const fontSizePt = numberInRange(config.fontSizePt, 8, 20, 11);
+    const fontFamily = safeFontFamily(config.fontFamily);
+    const renderedTables = new Map<string, string>();
     const regions = {
-        header: renderRegion(config.sections.headerHtml, template, context, metadata),
-        content: renderRegion(config.sections.contentHtml, template, context, metadata),
-        footer: renderRegion(config.sections.footerHtml, template, context, metadata),
+        header: renderRegion(
+            config.sections.headerHtml,
+            template,
+            context,
+            metadata,
+            renderedTables,
+        ),
+        content: renderRegion(
+            config.sections.contentHtml,
+            template,
+            context,
+            metadata,
+            renderedTables,
+        ),
+        footer: renderRegion(
+            config.sections.footerHtml,
+            template,
+            context,
+            metadata,
+            renderedTables,
+        ),
     };
-    const pageHeight = config.orientation === "landscape" ? 210 : 297;
-    const pageWidth = config.orientation === "landscape" ? 297 : 210;
+    const pageHeight = orientation === "landscape" ? 210 : 297;
+    const pageWidth = orientation === "landscape" ? 297 : 210;
     return `<!doctype html>
 <html lang="th">
 <head>
@@ -67,12 +92,12 @@ export function buildReportHtmlDocument(
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&amp;display=swap" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&amp;display=swap" />
     <style>
-        @page { size: A4 ${config.orientation}; margin: ${config.pageMarginMm}mm; }
+        @page { size: A4 ${orientation}; margin: ${pageMarginMm}mm; }
         * { box-sizing: border-box; }
         html { background: #e2e8f0; }
-        body { margin: 0; color: #000; font-family: ${config.fontFamily}; font-size: ${config.fontSizePt}pt; line-height: 1.45; }
-        .report-page { position: relative; display: flex; flex-direction: column; width: ${pageWidth}mm; min-height: ${pageHeight}mm; margin: 12px auto; padding: ${config.pageMarginMm}mm; background: #fff; box-shadow: 0 10px 30px rgba(15,23,42,.18); overflow: hidden; }
-        .report-page, .report-page * { font-family: ${config.fontFamily} !important; }
+        body { margin: 0; color: #000; font-family: ${fontFamily}; font-size: ${fontSizePt}pt; line-height: 1.45; }
+        .report-page { position: relative; display: flex; flex-direction: column; width: ${pageWidth}mm; min-height: ${pageHeight}mm; margin: 12px auto; padding: ${pageMarginMm}mm; background: #fff; box-shadow: 0 10px 30px rgba(15,23,42,.18); overflow: hidden; }
+        .report-page, .report-page * { font-family: ${fontFamily} !important; }
         .report-page, .report-page *:not(.draft-watermark) { color: #000 !important; -webkit-text-fill-color: #000 !important; }
         .report-content { flex: 1; }
         .report-region img { max-width: 100%; }
@@ -85,7 +110,7 @@ export function buildReportHtmlDocument(
         .report-header,.report-content,.report-footer { position: relative; z-index: 1; }
         @media print {
             html,body { background: #fff; }
-            .report-page { width: auto; min-height: calc(${pageHeight}mm - ${config.pageMarginMm * 2}mm); margin: 0; padding: 0; box-shadow: none; overflow: visible; }
+            .report-page { width: auto; min-height: calc(${pageHeight}mm - ${pageMarginMm * 2}mm); margin: 0; padding: 0; box-shadow: none; overflow: visible; }
         }
     </style>
 </head>
@@ -187,23 +212,29 @@ function renderRegion(
     template: ReportTemplate,
     context: ReportExportContext,
     metadata: ReportExportMetadata,
+    renderedTables: Map<string, string>,
 ): string {
     let html = sanitizeReportHtml(sourceHtml);
-    template.config.tables.forEach((table) => {
-        const token = escapeRegExp(`{{table:${table.id}}}`);
-        const rendered = renderTable(table, context);
-        html = html.replace(
-            new RegExp(`<p[^>]*>\\s*${token}\\s*</p>`, "gi"),
-            rendered,
-        );
-        html = html.replace(new RegExp(token, "g"), rendered);
-    });
     const tokens = reportTokens(template, context, metadata);
     Object.entries(tokens).forEach(([token, value]) => {
         html = html.replace(
             new RegExp(escapeRegExp(`{{${token}}}`), "g"),
-            escapeHtml(value),
+            () => escapeTokenText(value),
         );
+    });
+    template.config.tables.forEach((table) => {
+        if (!html.includes(`{{table:${table.id}}}`)) {
+            return;
+        }
+        const token = escapeRegExp(`{{table:${table.id}}}`);
+        const rendered =
+            renderedTables.get(table.id) ?? renderTable(table, context);
+        renderedTables.set(table.id, rendered);
+        html = html.replace(
+            new RegExp(`<p[^>]*>\\s*${token}\\s*</p>`, "gi"),
+            () => rendered,
+        );
+        html = html.replace(new RegExp(token, "g"), () => rendered);
     });
     return html;
 }
@@ -464,28 +495,8 @@ function thaiDate(date: string): string {
           }).format(value);
 }
 
-function sanitizeReportHtml(source: string): string {
-    const documentFragment = new DOMParser().parseFromString(
-        `<body>${source}</body>`,
-        "text/html",
-    );
-    documentFragment
-        .querySelectorAll("script,iframe,object,embed,link,meta,style")
-        .forEach((element) => element.remove());
-    documentFragment.body.querySelectorAll("*").forEach((element) => {
-        [...element.attributes].forEach((attribute) => {
-            const name = attribute.name.toLowerCase();
-            const value = attribute.value.toLowerCase();
-            if (name.startsWith("on") || value.includes("javascript:")) {
-                element.removeAttribute(attribute.name);
-            }
-        });
-    });
-    return documentFragment.body.innerHTML;
-}
-
 function csvCell(value: string): string {
-    const safeValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
+    const safeValue = /^\s*[=+\-@]/.test(value) ? `'${value}` : value;
     return `"${safeValue.replace(/"/g, '""')}"`;
 }
 
@@ -496,6 +507,30 @@ function escapeHtml(value: unknown): string {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function escapeTokenText(value: unknown): string {
+    return escapeHtml(value)
+        .replace(/\{/g, "&#123;")
+        .replace(/\}/g, "&#125;");
+}
+
+function numberInRange(
+    value: unknown,
+    min: number,
+    max: number,
+    fallback: number,
+): number {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= min && number <= max
+        ? number
+        : fallback;
+}
+
+function safeFontFamily(value: unknown): string {
+    return value === '"Noto Sans Thai", sans-serif'
+        ? value
+        : "Sarabun, sans-serif";
 }
 
 function escapeRegExp(value: string): string {

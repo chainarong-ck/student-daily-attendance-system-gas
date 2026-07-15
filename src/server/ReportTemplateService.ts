@@ -8,7 +8,6 @@ import type {
     ReportType,
 } from "../shared/types";
 import { AcademicYearService } from "./AcademicYearService";
-import { MainConfig } from "./MainConfig";
 import { ServerConstant } from "./ServerConstant";
 import { ServerUtils } from "./ServerUtils";
 import { SheetDatabase } from "./SheetDatabase";
@@ -17,14 +16,11 @@ export class ReportTemplateService {
     static list(
         database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
     ): ReportTemplate[] {
-        return database
-            .readObjects("ReportTemplates")
-            .map((row) => this.fromRow(row))
-            .sort((a, b) =>
-                a.reportType === b.reportType
-                    ? a.name.localeCompare(b.name, "th")
-                    : a.reportType.localeCompare(b.reportType),
-            );
+        return this.sortTemplates(
+            database
+                .readObjects("ReportTemplates")
+                .map((row) => this.fromRow(row)),
+        );
     }
 
     static listEnabled(
@@ -33,17 +29,23 @@ export class ReportTemplateService {
         return this.list(database).filter((template) => template.enabled);
     }
 
-    static save(rows: ReportTemplate[]): ReportTemplate[] {
-        const database = AcademicYearService.ensureCurrentSheet();
+    static save(
+        rows: ReportTemplate[],
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
+        existingRows?: ReportTemplate[],
+    ): ReportTemplate[] {
+        ServerUtils.assert(Array.isArray(rows), "ข้อมูลเทมเพลตไม่ถูกต้อง");
         const existingIds = new Set(
-            this.list(database).map((template) => template.id),
+            (existingRows ?? this.list(database)).map(
+                (template) => template.id,
+            ),
         );
         const normalized = this.normalizeRows(rows, existingIds);
         database.writeObjects(
             "ReportTemplates",
             normalized.map((template) => this.toRow(template)),
         );
-        return this.list(database);
+        return this.sortTemplates(normalized);
     }
 
     static listForAcademicYear(key: string): ReportTemplate[] {
@@ -56,12 +58,17 @@ export class ReportTemplateService {
         const sourceKey = ServerUtils.normalizeText(
             payload.sourceAcademicYearKey,
         );
-        const currentKey = ServerUtils.academicYearKey(
-            MainConfig.getCurrentAcademicYear(),
+        const targetContext = AcademicYearService.requireCurrentContext(
+            payload.targetAcademicYearKey,
         );
         ServerUtils.assert(
-            sourceKey !== currentKey,
+            sourceKey !==
+                ServerUtils.academicYearKey(targetContext.academicYear),
             "ปีการศึกษาต้นทางต้องไม่ใช่ปีการศึกษาปัจจุบัน",
+        );
+        ServerUtils.assert(
+            Array.isArray(payload.templateIds),
+            "รายการเทมเพลตที่ต้องการคัดลอกไม่ถูกต้อง",
         );
         const selectedIds = new Set(
             payload.templateIds.map((id) => ServerUtils.normalizeText(id)),
@@ -78,13 +85,13 @@ export class ReportTemplateService {
             "ไม่พบเทมเพลตต้นทางบางรายการ",
         );
 
-        const targetRows = this.list();
+        const targetRows = this.list(targetContext.database);
         ServerUtils.assert(
             targetRows.length + sourceRows.length <=
                 ServerConstant.LIMITS.reportTemplates,
             `มีเทมเพลตได้ไม่เกิน ${ServerConstant.LIMITS.reportTemplates} รายการต่อปีการศึกษา`,
         );
-        const sourceYear = MainConfig.getConfig().academicYears.find(
+        const sourceYear = targetContext.config.academicYears.find(
             (year) => ServerUtils.academicYearKey(year) === sourceKey,
         );
         ServerUtils.assert(sourceYear !== undefined, "ไม่พบปีการศึกษาต้นทาง");
@@ -119,7 +126,11 @@ export class ReportTemplateService {
                 updatedAt: "",
             };
         });
-        return this.save([...targetRows, ...copiedRows]);
+        return this.save(
+            [...targetRows, ...copiedRows],
+            targetContext.database,
+            targetRows,
+        );
     }
 
     static defaultConfig(reportType: ReportType): ReportTemplateConfig {
@@ -269,10 +280,10 @@ export class ReportTemplateService {
     private static fromRow(row: Record<string, string>): ReportTemplate {
         const reportType = this.reportType(row.reportType);
         const fallback = this.defaultConfig(reportType);
-        const parsed = ServerUtils.parseJson<Partial<ReportTemplateConfig>>(
-            row.configJson,
-            fallback,
+        const parsed = this.recordValue(
+            ServerUtils.parseJson<unknown>(row.configJson, {}),
         );
+        const parsedSections = this.recordValue(parsed.sections);
         const splitStorage = Boolean(
             row.headerHtml ||
                 row.contentHtml ||
@@ -286,37 +297,104 @@ export class ReportTemplateService {
                   footerHtml: row.footerHtml ?? "",
               }
             : {
-                  ...fallback.sections,
-                  ...(parsed.sections ?? {}),
+                  headerHtml:
+                      parsedSections.headerHtml ?? fallback.sections.headerHtml,
+                  contentHtml:
+                      parsedSections.contentHtml ??
+                      fallback.sections.contentHtml,
+                  footerHtml:
+                      parsedSections.footerHtml ?? fallback.sections.footerHtml,
               };
-        sections.headerHtml = this.migrateLegacyTokens(sections.headerHtml);
-        sections.contentHtml = this.migrateLegacyTokens(sections.contentHtml);
-        sections.footerHtml = this.migrateLegacyTokens(sections.footerHtml);
         const storedTables = splitStorage
-            ? ServerUtils.parseJson<ReportTableDefinition[]>(
-                  row.tablesJson,
-                  [],
-              )
-            : (parsed.tables ?? fallback.tables);
-        const tables = this.migrateStoredTables(storedTables, reportType);
+            ? ServerUtils.parseJson<unknown>(row.tablesJson, [])
+            : parsed.tables;
         return {
             id: ServerUtils.normalizeText(row.id),
             name: ServerUtils.normalizeText(row.name),
             reportType,
             isDefault: row.isDefault === "true",
             enabled: row.enabled !== "false",
-            config: {
-                ...fallback,
-                ...parsed,
+            config: this.normalizeStoredConfig(
+                parsed,
                 sections,
-                tables,
-                orientation:
-                    parsed.orientation === "landscape"
-                        ? "landscape"
-                        : "portrait",
-                fontFamily: this.fontFamily(parsed.fontFamily),
-            },
+                storedTables,
+                reportType,
+            ),
             updatedAt: ServerUtils.normalizeText(row.updatedAt),
+        };
+    }
+
+    private static normalizeStoredConfig(
+        parsed: Record<string, unknown>,
+        rawSections: Record<keyof ReportTemplateConfig["sections"], unknown>,
+        rawTables: unknown,
+        reportType: ReportType,
+    ): ReportTemplateConfig {
+        const fallback = this.defaultConfig(reportType);
+        const title =
+            ServerUtils.normalizeText(parsed.title).slice(
+                0,
+                ServerConstant.LIMITS.reportTemplateTextLength,
+            ) || fallback.title;
+        const subtitle = ServerUtils.normalizeText(parsed.subtitle).slice(
+            0,
+            ServerConstant.LIMITS.reportTemplateTextLength,
+        );
+        const sections = {
+            headerHtml: this.safeStoredTemplateHtml(
+                rawSections.headerHtml,
+                fallback.sections.headerHtml,
+            ),
+            contentHtml: this.safeStoredTemplateHtml(
+                rawSections.contentHtml,
+                fallback.sections.contentHtml,
+            ),
+            footerHtml: this.safeStoredTemplateHtml(
+                rawSections.footerHtml,
+                fallback.sections.footerHtml,
+            ),
+        };
+        let tables = fallback.tables;
+        try {
+            const candidates = Array.isArray(rawTables)
+                ? (rawTables as ReportTableDefinition[])
+                : fallback.tables;
+            tables = this.normalizeTables(
+                this.migrateStoredTables(candidates, reportType),
+                reportType,
+            );
+        } catch {
+            // A malformed row edited directly in Sheets must not reach the
+            // report renderer. Keep the rest of the template usable.
+            tables = fallback.tables;
+        }
+        return {
+            orientation:
+                parsed.orientation === "landscape" ? "landscape" : "portrait",
+            pageMarginMm: this.numberInRange(parsed.pageMarginMm, 5, 30, 12),
+            fontFamily: this.fontFamily(parsed.fontFamily),
+            fontSizePt: this.numberInRange(parsed.fontSizePt, 8, 20, 11),
+            title,
+            subtitle,
+            showLogo: this.storedBoolean(parsed.showLogo, fallback.showLogo),
+            showStatusDetails: this.storedBoolean(
+                parsed.showStatusDetails,
+                fallback.showStatusDetails,
+            ),
+            showDutyNotes: this.storedBoolean(
+                parsed.showDutyNotes,
+                fallback.showDutyNotes,
+            ),
+            showSignatures: this.storedBoolean(
+                parsed.showSignatures,
+                fallback.showSignatures,
+            ),
+            showDraftWatermark: this.storedBoolean(
+                parsed.showDraftWatermark,
+                fallback.showDraftWatermark,
+            ),
+            sections,
+            tables,
         };
     }
 
@@ -497,11 +575,19 @@ export class ReportTemplateService {
         reportType: ReportType,
     ): ReportTableDefinition[] {
         ServerUtils.assert(
+            Array.isArray(tables),
+            "ข้อมูลตารางในเทมเพลตไม่ถูกต้อง",
+        );
+        ServerUtils.assert(
             tables.length <= ServerConstant.LIMITS.reportTemplateTables,
             `มีตารางได้ไม่เกิน ${ServerConstant.LIMITS.reportTemplateTables} ตารางต่อเทมเพลต`,
         );
         const ids = new Set<string>();
         return tables.map((table) => {
+            ServerUtils.assert(
+                table !== null && typeof table === "object",
+                "ข้อมูลตารางในเทมเพลตไม่ถูกต้อง",
+            );
             const id = ServerUtils.normalizeText(table.id);
             const name = ServerUtils.normalizeText(table.name);
             ServerUtils.assert(/^[a-zA-Z0-9_-]+$/.test(id), "รหัสตารางไม่ถูกต้อง");
@@ -510,7 +596,8 @@ export class ReportTemplateService {
             ServerUtils.assert(name.length > 0, "ต้องระบุชื่อตาราง");
             ServerUtils.assert(name.length <= 100, "ชื่อตารางห้ามเกิน 100 ตัวอักษร");
             ServerUtils.assert(
-                table.columns.length > 0 &&
+                Array.isArray(table.columns) &&
+                    table.columns.length > 0 &&
                     table.columns.length <=
                         ServerConstant.LIMITS.reportTemplateTableColumns,
                 `ตารางต้องมี 1-${ServerConstant.LIMITS.reportTemplateTableColumns} คอลัมน์`,
@@ -733,7 +820,70 @@ export class ReportTemplateService {
                 !/javascript\s*:/i.test(html),
             "เนื้อหาเทมเพลตมี HTML ที่ไม่อนุญาต",
         );
+        const allowedTags = new Set([
+            "p",
+            "div",
+            "span",
+            "br",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "strong",
+            "b",
+            "em",
+            "i",
+            "u",
+            "s",
+            "ul",
+            "ol",
+            "li",
+            "blockquote",
+            "table",
+            "thead",
+            "tbody",
+            "tfoot",
+            "tr",
+            "th",
+            "td",
+            "a",
+            "font",
+        ]);
+        const tagPattern = /<\/?\s*([a-z][a-z0-9-]*)\b[^>]*>/gi;
+        let tagMatch: RegExpExecArray | null;
+        while ((tagMatch = tagPattern.exec(html)) !== null) {
+            ServerUtils.assert(
+                allowedTags.has(tagMatch[1].toLowerCase()),
+                "เนื้อหาเทมเพลตมีแท็ก HTML ที่ไม่อนุญาต",
+            );
+        }
         return html;
+    }
+
+    private static safeStoredTemplateHtml(
+        value: unknown,
+        fallback: string,
+    ): string {
+        if (typeof value !== "string") {
+            return fallback;
+        }
+        try {
+            return this.templateHtml(this.migrateLegacyTokens(value));
+        } catch {
+            return fallback;
+        }
+    }
+
+    private static recordValue(value: unknown): Record<string, unknown> {
+        return value !== null &&
+            typeof value === "object" &&
+            !Array.isArray(value)
+            ? (value as Record<string, unknown>)
+            : {};
+    }
+
+    private static storedBoolean(value: unknown, fallback: boolean): boolean {
+        return typeof value === "boolean" ? value : fallback;
     }
 
     private static migrateLegacyTokens(html: string): string {
@@ -779,6 +929,14 @@ export class ReportTemplateService {
 
     private static nameKey(reportType: ReportType, name: string): string {
         return `${reportType}:${name.trim().toLocaleLowerCase("th")}`;
+    }
+
+    private static sortTemplates(rows: ReportTemplate[]): ReportTemplate[] {
+        return [...rows].sort((a, b) =>
+            a.reportType === b.reportType
+                ? a.name.localeCompare(b.name, "th")
+                : a.reportType.localeCompare(b.reportType),
+        );
     }
 
     private static copiedName(

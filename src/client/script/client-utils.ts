@@ -110,9 +110,19 @@ export function bindShellActions(): void {
 
 export function todayText(): string {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const date = String(now.getDate()).padStart(2, "0");
+    const parts = new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Bangkok",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(now);
+    const valueByPart = new Map(parts.map((part) => [part.type, part.value]));
+    const year = valueByPart.get("year") ?? String(now.getFullYear());
+    const month =
+        valueByPart.get("month") ??
+        String(now.getMonth() + 1).padStart(2, "0");
+    const date =
+        valueByPart.get("day") ?? String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${date}`;
 }
 
@@ -129,6 +139,14 @@ export function messageText(error: unknown): string {
     if (error instanceof Error) {
         return error.message;
     }
+    if (error && typeof error === "object" && "message" in error) {
+        const message = String(
+            (error as { message?: unknown }).message ?? "",
+        ).trim();
+        if (message) {
+            return message;
+        }
+    }
     return String(error || "เกิดข้อผิดพลาด");
 }
 
@@ -138,13 +156,18 @@ export function setBusy(
     label?: string,
 ): void {
     if (busy) {
-        button.dataset.label = button.textContent ?? "";
+        if (button.dataset.busy !== "true") {
+            button.dataset.label = button.textContent ?? "";
+        }
+        button.dataset.busy = "true";
         button.disabled = true;
         button.textContent = label ?? "กำลังทำงาน...";
         return;
     }
     button.disabled = false;
     button.textContent = button.dataset.label ?? button.textContent;
+    delete button.dataset.busy;
+    delete button.dataset.label;
 }
 
 export function footerHtml(): string {

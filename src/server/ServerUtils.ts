@@ -27,7 +27,22 @@ export class ServerUtils {
         const lock = LockService.getScriptLock();
         lock.waitLock(10_000);
         try {
-            return callback();
+            let result: T;
+            try {
+                result = callback();
+            } catch (error) {
+                try {
+                    SpreadsheetApp.flush();
+                } catch (flushError) {
+                    console.error(
+                        "ไม่สามารถ flush การเปลี่ยนแปลงหลังเกิดข้อผิดพลาด",
+                        flushError,
+                    );
+                }
+                throw error;
+            }
+            SpreadsheetApp.flush();
+            return result;
         } finally {
             lock.releaseLock();
         }
@@ -40,7 +55,7 @@ export class ServerUtils {
     static toNumber(value: unknown, fieldName: string): number {
         const numberValue = Number(value);
         this.assert(
-            Number.isInteger(numberValue),
+            Number.isSafeInteger(numberValue),
             `${fieldName} ต้องเป็นตัวเลขจำนวนเต็ม`,
         );
         return numberValue;
@@ -68,11 +83,7 @@ export class ServerUtils {
     }
 
     static createShortId(prefix: string): string {
-        const time = Date.now().toString(36).slice(-5);
-        const random = Math.floor(Math.random() * 1679616)
-            .toString(36)
-            .padStart(4, "0");
-        return `${prefix}_${time}${random}`;
+        return `${prefix}_${Utilities.getUuid().replace(/-/g, "")}`;
     }
 
     static isDateText(value: string): boolean {

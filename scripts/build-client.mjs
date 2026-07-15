@@ -7,7 +7,10 @@ const pages = ["Index.html", "Admin.html", "Login.html", "Setup.html"];
 try {
     for (const page of pages) {
         await build({
-            plugins: [tailwindcss(), viteSingleFile()],
+            plugins: [
+                tailwindcss(),
+                viteSingleFile({ removeViteModuleLoader: true }),
+            ],
             root: "src/client",
             build: {
                 outDir: "../../.build",

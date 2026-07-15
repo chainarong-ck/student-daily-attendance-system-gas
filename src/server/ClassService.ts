@@ -4,6 +4,10 @@ import { ServerConstant } from "./ServerConstant";
 import { ServerUtils } from "./ServerUtils";
 import { SheetDatabase } from "./SheetDatabase";
 
+const MAX_CLASS_ID_LENGTH = 100;
+const MAX_GRADE_LENGTH = 50;
+const MAX_ROOM_LENGTH = 50;
+
 export class ClassService {
     static listClasses(
         database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
@@ -24,8 +28,11 @@ export class ClassService {
             );
     }
 
-    static saveClasses(rows: ClassRoom[]): ClassRoom[] {
-        const database = AcademicYearService.ensureCurrentSheet();
+    static saveClasses(
+        rows: ClassRoom[],
+        database: SheetDatabase = AcademicYearService.ensureCurrentSheet(),
+    ): ClassRoom[] {
+        ServerUtils.assert(Array.isArray(rows), "ข้อมูลห้องเรียนไม่ถูกต้อง");
         const normalized = rows
             .map((row) => ({
                 id:
@@ -42,11 +49,23 @@ export class ClassService {
         const ids = new Set<string>();
         const keys = new Set<string>();
         for (const row of normalized) {
+            ServerUtils.assert(
+                row.id.length <= MAX_CLASS_ID_LENGTH,
+                `รหัสห้องเรียนห้ามเกิน ${MAX_CLASS_ID_LENGTH} ตัวอักษร`,
+            );
             ServerUtils.assert(row.grade.length > 0, "ต้องระบุระดับชั้น");
+            ServerUtils.assert(
+                row.grade.length <= MAX_GRADE_LENGTH,
+                `ระดับชั้นห้ามเกิน ${MAX_GRADE_LENGTH} ตัวอักษร`,
+            );
             ServerUtils.assert(row.room.length > 0, "ต้องระบุเลขห้อง");
+            ServerUtils.assert(
+                row.room.length <= MAX_ROOM_LENGTH,
+                `เลขห้องห้ามเกิน ${MAX_ROOM_LENGTH} ตัวอักษร`,
+            );
             ServerUtils.assert(!ids.has(row.id), "รหัสห้องเรียนซ้ำ");
             ids.add(row.id);
-            const key = `${row.grade}:${row.room}`;
+            const key = JSON.stringify([row.grade, row.room]);
             ServerUtils.assert(!keys.has(key), "ระดับชั้นและเลขห้องห้ามซ้ำ");
             keys.add(key);
         }

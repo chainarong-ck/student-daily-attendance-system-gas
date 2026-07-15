@@ -41,17 +41,25 @@ declare global {
                 adminToken: string,
                 payload: SaveAcademicYearsPayload,
             ): AdminBootstrap;
-            saveClasses(adminToken: string, rows: ClassRoom[]): ClassRoom[];
+            saveClasses(
+                adminToken: string,
+                rows: ClassRoom[],
+                academicYearKey: string,
+            ): ClassRoom[];
             saveStudents(
                 adminToken: string,
                 classId: string,
                 rows: Student[],
+                academicYearKey: string,
             ): Student[];
             forceDeleteStudents(
                 adminToken: string,
                 payload: ForceDeleteStudentsPayload,
             ): ForceDeleteStudentsResult;
-            getReportTemplates(token: string): ReportTemplate[];
+            getReportTemplates(
+                token: string,
+                academicYearKey: string,
+            ): ReportTemplate[];
             getReportTemplatesForAcademicYear(
                 adminToken: string,
                 academicYearKey: string,
@@ -59,6 +67,7 @@ declare global {
             saveReportTemplates(
                 adminToken: string,
                 rows: ReportTemplate[],
+                academicYearKey: string,
             ): ReportTemplate[];
             copyReportTemplates(
                 adminToken: string,
@@ -68,6 +77,7 @@ declare global {
                 token: string,
                 classId: string,
                 date: string,
+                academicYearKey: string,
             ): AttendanceClassSession;
             saveAttendance(
                 token: string,
@@ -80,10 +90,12 @@ declare global {
             getAttendanceOverview(
                 token: string,
                 date: string,
+                academicYearKey: string,
             ): AttendanceOverview;
             getAttendanceStats(
                 token: string,
                 filters: AttendanceStatsFilters,
+                academicYearKey: string,
             ): AttendanceStats;
         }
 

@@ -52,6 +52,9 @@ let currentSession: AttendanceClassSession | null = null;
 let currentOverview: AttendanceOverview | null = null;
 let currentStats: AttendanceStats | null = null;
 let overviewDisplayMode: "count" | "percent" = "count";
+let overviewRequestId = 0;
+let sessionRequestId = 0;
+let statsRequestId = 0;
 
 const panelClass =
     "rounded-lg border border-white/70 bg-white/95 p-5 shadow-xl shadow-slate-200/60";
@@ -153,6 +156,9 @@ function render(): void {
             void loadOverview();
         });
     document
+        .getElementById("overviewDate")
+        ?.addEventListener("change", invalidateOverview);
+    document
         .querySelectorAll<HTMLButtonElement>("[data-overview-mode]")
         .forEach((button) => {
             button.addEventListener("click", () => {
@@ -169,10 +175,19 @@ function render(): void {
             void loadSession();
         });
     document
+        .getElementById("classSelect")
+        ?.addEventListener("change", invalidateSession);
+    document
+        .getElementById("attendanceDate")
+        ?.addEventListener("change", invalidateSession);
+    document
         .getElementById("loadStatsButton")
         ?.addEventListener("click", () => {
             void loadStats();
         });
+    ["statsFrom", "statsTo", "statsClass", "statsGender"].forEach((id) => {
+        document.getElementById(id)?.addEventListener("change", invalidateStats);
+    });
     document
         .getElementById("exportDailyButton")
         ?.addEventListener("click", () => openExportDialog("daily"));
@@ -250,24 +265,58 @@ function genderOptions(): string {
     return `<option value="">ทุกเพศ</option><option value="male">ชาย</option><option value="female">หญิง</option><option value="unknown">ไม่ระบุ</option>`;
 }
 
-async function loadOverview(): Promise<void> {
+function invalidateOverview(): void {
+    overviewRequestId += 1;
+    currentOverview = null;
+    const content = document.getElementById("overviewContent");
+    if (content) {
+        content.textContent = "เลือกวันที่แล้วกดโหลดเพื่อดูภาพรวม";
+    }
     const button = document.getElementById(
         "loadOverviewButton",
     ) as HTMLButtonElement | null;
     if (button) {
+        setBusy(button, false);
+    }
+}
+
+async function loadOverview(): Promise<void> {
+    const dateInput = document.getElementById(
+        "overviewDate",
+    ) as HTMLInputElement | null;
+    const date = dateInput?.value ?? "";
+    if (!date) {
+        invalidateOverview();
+        showNotice("indexNotice", "กรุณาเลือกวันที่", "error");
+        return;
+    }
+    const requestId = ++overviewRequestId;
+    currentOverview = null;
+    const button = document.getElementById(
+        "loadOverviewButton",
+    ) as HTMLButtonElement | null;
+    const content = document.getElementById("overviewContent");
+    if (content) {
+        content.textContent = "กำลังโหลด...";
+    }
+    if (button) {
         setBusy(button, true, "กำลังโหลด...");
     }
     try {
-        const date = (
-            document.getElementById("overviewDate") as HTMLInputElement
-        ).value;
         const overview = await googleScriptRun(
             "getAttendanceOverview",
             token,
             date,
+            bootstrap.academicYearKey,
         );
+        if (requestId !== overviewRequestId) {
+            return;
+        }
+        if (dateInput?.value !== date) {
+            invalidateOverview();
+            return;
+        }
         currentOverview = overview;
-        const content = document.getElementById("overviewContent");
         if (!content) {
             return;
         }
@@ -287,9 +336,19 @@ async function loadOverview(): Promise<void> {
             </div>`;
         applyOverviewDisplayMode();
     } catch (error) {
+        if (requestId !== overviewRequestId) {
+            return;
+        }
+        if (dateInput?.value !== date) {
+            invalidateOverview();
+            return;
+        }
+        if (content) {
+            content.textContent = "ไม่สามารถโหลดภาพรวมได้ กรุณาลองใหม่";
+        }
         showNotice("indexNotice", messageText(error), "error");
     } finally {
-        if (button) {
+        if (button && requestId === overviewRequestId) {
             setBusy(button, false);
         }
     }
@@ -419,6 +478,35 @@ function formatPercent(value: number, total: number): string {
     return `${((value / total) * 100).toFixed(1)}%`;
 }
 
+function attendanceSessionKey(classId: string, date: string): string {
+    return JSON.stringify([classId, date]);
+}
+
+function selectedAttendanceSessionKey(): string {
+    const classId = (
+        document.getElementById("classSelect") as HTMLSelectElement | null
+    )?.value;
+    const date = (
+        document.getElementById("attendanceDate") as HTMLInputElement | null
+    )?.value;
+    return attendanceSessionKey(classId ?? "", date ?? "");
+}
+
+function invalidateSession(): void {
+    sessionRequestId += 1;
+    currentSession = null;
+    const content = document.getElementById("attendanceContent");
+    if (content) {
+        content.textContent = "เลือกห้องและวันที่เพื่อเริ่มเช็คชื่อ";
+    }
+    const button = document.getElementById(
+        "loadSessionButton",
+    ) as HTMLButtonElement | null;
+    if (button) {
+        setBusy(button, false);
+    }
+}
+
 async function loadSession(): Promise<void> {
     const classId = (
         document.getElementById("classSelect") as HTMLSelectElement
@@ -426,25 +514,59 @@ async function loadSession(): Promise<void> {
     const date = (document.getElementById("attendanceDate") as HTMLInputElement)
         .value;
     if (!classId) {
+        invalidateSession();
         showNotice("indexNotice", "กรุณาเลือกห้องเรียน", "error");
         return;
+    }
+    if (!date) {
+        invalidateSession();
+        showNotice("indexNotice", "กรุณาเลือกวันที่", "error");
+        return;
+    }
+    const requestId = ++sessionRequestId;
+    const requestKey = attendanceSessionKey(classId, date);
+    currentSession = null;
+    const content = document.getElementById("attendanceContent");
+    if (content) {
+        content.textContent = "กำลังโหลดรายชื่อ...";
     }
     const button = document.getElementById(
         "loadSessionButton",
     ) as HTMLButtonElement;
     setBusy(button, true, "กำลังโหลด...");
     try {
-        currentSession = await googleScriptRun(
+        const session = await googleScriptRun(
             "getAttendanceClassSession",
             token,
             classId,
             date,
+            bootstrap.academicYearKey,
         );
+        if (requestId !== sessionRequestId) {
+            return;
+        }
+        if (requestKey !== selectedAttendanceSessionKey()) {
+            invalidateSession();
+            return;
+        }
+        currentSession = session;
         renderSession();
     } catch (error) {
+        if (requestId !== sessionRequestId) {
+            return;
+        }
+        if (requestKey !== selectedAttendanceSessionKey()) {
+            invalidateSession();
+            return;
+        }
+        if (content) {
+            content.textContent = "ไม่สามารถโหลดรายชื่อได้ กรุณาลองใหม่";
+        }
         showNotice("indexNotice", messageText(error), "error");
     } finally {
-        setBusy(button, false);
+        if (requestId === sessionRequestId) {
+            setBusy(button, false);
+        }
     }
 }
 
@@ -497,53 +619,143 @@ async function persistSession(): Promise<void> {
     if (!currentSession) {
         return;
     }
+    const session = currentSession;
+    const loadedSessionKey = attendanceSessionKey(
+        session.classRoom.id,
+        session.date,
+    );
+    if (
+        session.academicYearKey !== bootstrap.academicYearKey ||
+        loadedSessionKey !== selectedAttendanceSessionKey()
+    ) {
+        invalidateSession();
+        showNotice(
+            "indexNotice",
+            "ห้องหรือวันที่ถูกเปลี่ยน กรุณาโหลดรายชื่อใหม่ก่อนบันทึก",
+            "error",
+        );
+        return;
+    }
     const button = document.getElementById(
         "saveAttendanceButton",
-    ) as HTMLButtonElement;
+    ) as HTMLButtonElement | null;
+    if (!button) {
+        return;
+    }
     setBusy(button, true, "กำลังบันทึก...");
+    const statusSelects = Array.from(
+        document.querySelectorAll<HTMLSelectElement>("[data-student-id]"),
+    );
+    statusSelects.forEach((select) => {
+        select.disabled = true;
+    });
     try {
-        const records = Array.from(
-            document.querySelectorAll<HTMLSelectElement>("[data-student-id]"),
-        ).map((select) => ({
+        const records = statusSelects.map((select) => ({
             studentId: select.dataset.studentId ?? "",
             status: select.value as AttendanceStatus,
         }));
         const payload = {
-            date: currentSession.date,
-            classId: currentSession.classRoom.id,
+            academicYearKey: bootstrap.academicYearKey,
+            expectedSessionRevision: session.revision,
+            date: session.date,
+            classId: session.classRoom.id,
             records,
         };
-        await googleScriptRun(
-            currentSession.checked ? "updateAttendance" : "saveAttendance",
-            token,
-            payload,
-        );
+        try {
+            await googleScriptRun(
+                session.checked ? "updateAttendance" : "saveAttendance",
+                token,
+                payload,
+            );
+        } catch (error) {
+            showNotice("indexNotice", messageText(error), "error");
+            return;
+        }
         showNotice("indexNotice", "บันทึกข้อมูลเรียบร้อย", "ok");
-        await Promise.all([loadSession(), loadOverview()]);
-    } catch (error) {
-        showNotice("indexNotice", messageText(error), "error");
+        const refreshSucceeded = await Promise.all(
+            [loadSession(), loadOverview()].map((request) =>
+                request.then(
+                    () => true,
+                    () => false,
+                ),
+            ),
+        );
+        if (refreshSucceeded.includes(false)) {
+            showNotice(
+                "indexNotice",
+                "บันทึกข้อมูลแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณากดโหลดอีกครั้ง",
+                "info",
+            );
+        }
     } finally {
+        statusSelects.forEach((select) => {
+            if (select.isConnected) {
+                select.disabled = false;
+            }
+        });
+        setBusy(button, false);
+    }
+}
+
+function invalidateStats(): void {
+    statsRequestId += 1;
+    currentStats = null;
+    const content = document.getElementById("statsContent");
+    if (content) {
+        content.textContent = "เลือกช่วงวันที่แล้วกดดูสถิติ";
+    }
+    const button = document.getElementById(
+        "loadStatsButton",
+    ) as HTMLButtonElement | null;
+    if (button) {
         setBusy(button, false);
     }
 }
 
 async function loadStats(): Promise<void> {
+    const filters = statsFiltersFromForm();
+    const requestId = ++statsRequestId;
+    currentStats = null;
     const button = document.getElementById(
         "loadStatsButton",
     ) as HTMLButtonElement;
+    const content = document.getElementById("statsContent");
+    if (content) {
+        content.textContent = "กำลังโหลด...";
+    }
     setBusy(button, true, "กำลังโหลด...");
     try {
         const stats = await googleScriptRun(
             "getAttendanceStats",
             token,
-            statsFiltersFromForm(),
+            filters,
+            bootstrap.academicYearKey,
         );
+        if (requestId !== statsRequestId) {
+            return;
+        }
+        if (!sameStatsFilters(filters, statsFiltersFromForm())) {
+            invalidateStats();
+            return;
+        }
         currentStats = stats;
         renderStats(stats);
     } catch (error) {
+        if (requestId !== statsRequestId) {
+            return;
+        }
+        if (!sameStatsFilters(filters, statsFiltersFromForm())) {
+            invalidateStats();
+            return;
+        }
+        if (content) {
+            content.textContent = "ไม่สามารถโหลดสถิติได้ กรุณาลองใหม่";
+        }
         showNotice("indexNotice", messageText(error), "error");
     } finally {
-        setBusy(button, false);
+        if (requestId === statsRequestId) {
+            setBusy(button, false);
+        }
     }
 }
 
@@ -724,6 +936,7 @@ async function reportExportContext(
                 "getAttendanceOverview",
                 token,
                 date,
+                bootstrap.academicYearKey,
             );
         }
         return { reportType: "daily", date, overview: currentOverview };
@@ -734,6 +947,7 @@ async function reportExportContext(
             "getAttendanceStats",
             token,
             filters,
+            bootstrap.academicYearKey,
         );
     }
     return { reportType: "detailed", filters, stats: currentStats };

@@ -14,6 +14,10 @@ export class AuthService {
     static hashPassword(password: string): string {
         const clean = password.trim();
         ServerUtils.assert(clean.length > 0, "ต้องระบุรหัสผ่าน");
+        ServerUtils.assert(
+            clean.length <= ServerConstant.LIMITS.passwordLength,
+            `รหัสผ่านต้องยาวไม่เกิน ${ServerConstant.LIMITS.passwordLength} ตัวอักษร`,
+        );
         return ServerUtils.hashText(`pwd:${clean}`);
     }
 
@@ -47,14 +51,24 @@ export class AuthService {
         const payload = Utilities.base64EncodeWebSafe(
             JSON.stringify({ role, exp: expiresAt } satisfies TokenPayload),
         ).replace(/=+$/g, "");
-        const signature = this.sign(payload, hashes);
+        const signature = this.sign(payload, role, hashes);
         return `${payload}.${signature}`;
     }
 
     private static verifyToken(token: string, expectedRole: AuthRole): void {
-        const [payload, signature] = token.split(".");
+        ServerUtils.assert(
+            typeof token === "string" &&
+                token.length <= ServerConstant.LIMITS.authTokenLength,
+            "กรุณาเข้าสู่ระบบใหม่",
+        );
+        const parts = token.split(".");
+        ServerUtils.assert(parts.length === 2, "กรุณาเข้าสู่ระบบใหม่");
+        const [payload, signature] = parts;
         ServerUtils.assert(Boolean(payload && signature), "กรุณาเข้าสู่ระบบใหม่");
-        ServerUtils.assert(signature === this.sign(payload), "กรุณาเข้าสู่ระบบใหม่");
+        ServerUtils.assert(
+            signature === this.sign(payload, expectedRole),
+            "กรุณาเข้าสู่ระบบใหม่",
+        );
         try {
             const decoded = Utilities.newBlob(
                 Utilities.base64DecodeWebSafe(this.withBase64Padding(payload)),
@@ -79,11 +93,15 @@ export class AuthService {
 
     private static sign(
         payload: string,
+        role: AuthRole,
         hashes: AuthHashes = MainConfig.getAuthHashes(),
     ): string {
-        return ServerUtils.hashText(
-            `${payload}:${hashes.app}:${hashes.admin}`,
+        const signature = Utilities.computeHmacSha256Signature(
+            `${payload}:${role}:${hashes[role]}`,
+            MainConfig.getAuthSigningSecret(),
+            Utilities.Charset.UTF_8,
         );
+        return Utilities.base64EncodeWebSafe(signature).replace(/=+$/g, "");
     }
 
     private static withBase64Padding(value: string): string {

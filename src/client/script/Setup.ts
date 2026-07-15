@@ -54,7 +54,7 @@ async function main(): Promise<void> {
                         </div>
                     </div>
                 </div>
-                <button id="submitButton" type="submit" class="${primaryButtonClass}">บันทึกและเริ่มใช้งาน</button>
+                <button id="submitButton" type="submit" disabled class="${primaryButtonClass}">บันทึกและเริ่มใช้งาน</button>
             </form>
             </div>
         </div>`,
@@ -67,18 +67,23 @@ async function main(): Promise<void> {
     );
     bindShellActions();
 
+    const form = document.getElementById("setupForm") as HTMLFormElement;
+    const button = document.getElementById("submitButton") as HTMLButtonElement;
+    let setupReady = false;
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (setupReady && !button.disabled) {
+            void submitSetup(form, button);
+        }
+    });
+
     const state = await googleScriptRun("getPublicSystemState");
     if (state.initialized) {
         navigateTo("Login");
         return;
     }
-
-    const form = document.getElementById("setupForm") as HTMLFormElement;
-    const button = document.getElementById("submitButton") as HTMLButtonElement;
-    form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        void submitSetup(form, button);
-    });
+    setupReady = true;
+    button.disabled = false;
 }
 
 async function submitSetup(

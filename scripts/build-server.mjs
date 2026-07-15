@@ -19,6 +19,7 @@ const compiler = webpack({
                 loader: "ts-loader",
                 options: {
                     configFile: "tsconfig.webpack.json",
+                    transpileOnly: true,
                 },
             },
         ],

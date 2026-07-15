@@ -19,6 +19,7 @@ export class ServerConstant {
         schoolName: "schoolName",
         appPasswordHash: "appPasswordHash",
         adminPasswordHash: "adminPasswordHash",
+        authSigningSecret: "authSigningSecret",
         academicYears: "academicYears",
         currentYear: "currentYear",
         initialized: "initialized",
@@ -26,7 +27,9 @@ export class ServerConstant {
 
     static readonly LIMITS = {
         schoolNameLength: 100,
+        passwordLength: 128,
         passwordHashLength: 100,
+        authTokenLength: 2_048,
         academicYears: 50,
         classes: 20,
         students: 500,
